@@ -208,3 +208,6 @@ def main():
             break
         else:
             print("Invalid input. Please enter an option from 1 to 6.\n")
+
+if __name__ == "__main__":
+    main()
