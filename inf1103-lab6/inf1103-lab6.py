@@ -127,3 +127,84 @@ class Inventory:
             print(f"Inventory saved successfully to {filename}.\n")
         except Exception as e:
             print(f"Unappeased friction during save operation: {e}\n")
+
+def display_menu():
+    print("---------- MENU ----------")
+    print("1. Display All Products")
+    print("2. Add Product")
+    print("3. Update Stock")
+    print("4. Search Product")
+    print("5. Save Inventory")
+    print("6. Exit")
+    print("--------------------------")
+
+
+def main():
+    print("=" * 45)
+    print("INVENTORY MANAGEMENT SYSTEM")
+    print("=" * 45 + "\n")
+
+    inventory = Inventory()
+    inventory.load_from_file(FILENAME)
+
+    while True:
+        display_menu()
+        option = input("\nEnter option: ").strip()
+
+        if option == "1":
+            inventory.display_all()
+
+        elif option == "2":
+            print("\nAdd New Product")
+            prod_id = input("Product ID: ").strip()
+            if inventory.search_product(prod_id):
+                print("Error: Product ID already exists in data-stack.\n")
+                continue
+
+            name = input("Product Name: ").strip()
+            try:
+                price = float(input("Price: "))
+                stock = int(input("Stock Quantity: "))
+                new_prod = Product(prod_id, name, price, stock)
+                inventory.add_product(new_prod)
+                print("\nProduct added successfully!\n")
+            except ValueError as e:
+                print(f"Data type mismatch or invalid value: {e}\n")
+
+        elif option == "3":
+            print("\nUpdate Stock")
+            prod_id = input("Enter Product ID to update: ").strip()
+            prod = inventory.search_product(prod_id)
+            if prod:
+                try:
+                    new_stock = int(input(f"Enter new stock for {prod.name}: "))
+                    prod.update_stock(new_stock)
+                    print("Stock updated successfully!\n")
+                except ValueError:
+                    print("Invalid stock entry. Operation aborted.\n")
+            else:
+                print("Product not found.\n")
+
+        elif option == "4":
+            print("\nSearch Product")
+            prod_id = input("Enter Product ID: ").strip()
+            prod = inventory.search_product(prod_id)
+            if prod:
+                print("\nProduct Found")
+                print("-" * 45)
+                prod.display_information()
+                print("-" * 45 + "\n")
+            else:
+                print("\nProduct not found.\n")
+
+        elif option == "5":
+            inventory.save_to_file(FILENAME)
+
+        elif option == "6":
+            print("\nSaving inventory before exit...")
+            inventory.save_to_file(FILENAME)
+            print("Thank you for using Inventory Management System.")
+            print("Program terminated.")
+            break
+        else:
+            print("Invalid input. Please enter an option from 1 to 6.\n")
