@@ -42,8 +42,17 @@ class Product(ABC):
     def get_fulfilment_info(self) -> str:
         pass
 
+# products that can be shipped physically
+class CanBeShipped(ABC):
+
+    @abstractmethod
+    def calculate_shipping_cost(self) -> float:
+        pass
+
 # physical item that needs storage and shipping
 class PhysicalProduct(Product):
+
+    SHIPPING_RATE_PER_KG = 5.00  # base calculation rule
 
     def __init__(self, product_id: str, name: str, price: float, stock: int, weight: float):
         super().__init__(product_id, name, price, stock)
@@ -56,10 +65,14 @@ class PhysicalProduct(Product):
     def get_fulfilment_info(self) -> str:
         return "Requires physical packaging and courier shipping."
 
+    def calculate_shipping_cost(self) -> float:
+        return self._weight * self.SHIPPING_RATE_PER_KG
+
     def display_information(self) -> None:
         super().display_information()
         print(
             f"   -> Type: Physical | Weight: {self._weight:.2f} kg | "
+            f"Shipping Cost: ${self.calculate_shipping_cost():.2f} | "
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
