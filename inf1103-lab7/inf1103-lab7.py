@@ -2,11 +2,12 @@
 
 import json
 import os
+from abc import ABC, abstractmethod
 
 FILENAME = "inventory.json"
 
-class Product:
-    # represents & manages an individual product unit
+# represents & manages an individual product unit
+class Product(ABC):
 
     def __init__(self, product_id: str, name: str, price: float, stock: int):
         self._product_id = product_id
@@ -27,37 +28,22 @@ class Product:
         return self._stock
 
     def update_stock(self, new_stock: int) -> None:
-        # modify internal stock quantity
         if new_stock < 0:
             raise ValueError("Stock quantity cannot be negative.")
         self._stock = new_stock
 
     def display_information(self) -> None:
-        # display details of this individual product
         print(
             f"ID: {self._product_id} | Name: {self.name} | "
             f"Price: ${self._price:.2f} | Stock: {self._stock}"
         )
 
-    def to_dict(self) -> dict:
-        return {
-            "id": self._product_id,
-            "name": self.name,
-            "price": self._price,
-            "stock": self._stock,
-        }
+    @abstractmethod
+    def get_fulfilment_info(self) -> str:
+        pass
 
-    @classmethod
-    def from_dict(cls, data: dict):
-        return cls(
-            product_id=data["id"],
-            name=data["name"],
-            price=data["price"],
-            stock=data["stock"],
-        )
-
+# physical item that needs storage and shipping
 class PhysicalProduct(Product):
-    # physical item that needs storage and shipping
 
     def __init__(self, product_id: str, name: str, price: float, stock: int, weight: float):
         super().__init__(product_id, name, price, stock)
@@ -67,13 +53,18 @@ class PhysicalProduct(Product):
     def weight(self) -> float:
         return self._weight
 
+    def get_fulfilment_info(self) -> str:
+        return "Requires physical packaging and courier shipping."
+
     def display_information(self) -> None:
         super().display_information()
-        print(f"   -> Type: Physical | Weight: {self._weight:.2f} kg")
+        print(
+            f"   -> Type: Physical | Weight: {self._weight:.2f} kg | "
+            f"Fulfilment: {self.get_fulfilment_info()}"
+        )
 
-
+# virtual product delivered digitally
 class DigitalProduct(Product):
-    # virtual product delivered digitally
 
     def __init__(self, product_id: str, name: str, price: float, stock: int, download_size: float):
         super().__init__(product_id, name, price, stock)
@@ -83,9 +74,15 @@ class DigitalProduct(Product):
     def download_size(self) -> float:
         return self._download_size
 
+    def get_fulfilment_info(self) -> str:
+        return "Delivered digitally via direct download link."
+
     def display_information(self) -> None:
         super().display_information()
-        print(f"   -> Type: Digital  | Download Size: {self._download_size:.2f} MB")
+        print(
+            f"   -> Type: Digital  | Download Size: {self._download_size:.2f} MB | "
+            f"Fulfilment: {self.get_fulfilment_info()}"
+        )
 
 class Inventory:
     #  manage collection of Product objects
