@@ -42,6 +42,36 @@ class Product(ABC):
     def get_fulfilment_info(self) -> str:
         pass
 
+    def to_dict(self) -> dict:
+        return {
+            "id": self._product_id,
+            "name": self.name,
+            "price": self._price,
+            "stock": self._stock,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Product":
+        prod_type = data.get("type", "physical").lower()
+        if prod_type == "physical":
+            return PhysicalProduct(
+                product_id=data["id"],
+                name=data["name"],
+                price=data["price"],
+                stock=data["stock"],
+                weight=data.get("weight", 1.0),
+            )
+        elif prod_type == "digital":
+            return DigitalProduct(
+                product_id=data["id"],
+                name=data["name"],
+                price=data["price"],
+                stock=data["stock"],
+                download_size=data.get("download_size", 100.0),
+            )
+        else:
+            raise ValueError(f"Unknown product type identifier: {prod_type}")
+
 # products that can be shipped physically
 class CanBeShipped(ABC):
 
@@ -76,6 +106,12 @@ class PhysicalProduct(Product):
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["type"] = "physical"
+        data["weight"] = self._weight
+        return data
+
 # virtual product delivered digitally
 class DigitalProduct(Product):
 
@@ -96,6 +132,12 @@ class DigitalProduct(Product):
             f"   -> Type: Digital  | Download Size: {self._download_size:.2f} MB | "
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
+
+    def to_dict(self) -> dict:
+        data = super().to_dict()
+        data["type"] = "digital"
+        data["download_size"] = self._download_size
+        return data
 
 class Inventory:
     #  manage collection of Product objects
@@ -151,9 +193,10 @@ class Inventory:
 
         if not self._products:
             default_items = [
-                Product("P001", "Laptop", 1200.00, 15),
-                Product("P002", "Mouse", 25.50, 40),
-                Product("P003", "Keyboard", 45.00, 25),
+                PhysicalProduct("P001", "Laptop", 1200.00, 15, 2.10),
+                PhysicalProduct("P002", "Mouse", 25.50, 40, 0.12),
+                PhysicalProduct("P003", "Keyboard", 45.00, 25, 0.85),
+                DigitalProduct("D001", "System OS Pro", 149.99, 100, 4500.0),
             ]
             for prod in default_items:
                 self.add_product(prod)
