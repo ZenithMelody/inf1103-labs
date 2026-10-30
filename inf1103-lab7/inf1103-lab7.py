@@ -56,6 +56,37 @@ class Product:
             stock=data["stock"],
         )
 
+class PhysicalProduct(Product):
+    # physical item that needs storage and shipping
+
+    def __init__(self, product_id: str, name: str, price: float, stock: int, weight: float):
+        super().__init__(product_id, name, price, stock)
+        self._weight = float(weight)
+
+    @property
+    def weight(self) -> float:
+        return self._weight
+
+    def display_information(self) -> None:
+        super().display_information()
+        print(f"   -> Type: Physical | Weight: {self._weight:.2f} kg")
+
+
+class DigitalProduct(Product):
+    # virtual product delivered digitally
+
+    def __init__(self, product_id: str, name: str, price: float, stock: int, download_size: float):
+        super().__init__(product_id, name, price, stock)
+        self._download_size = float(download_size)
+
+    @property
+    def download_size(self) -> float:
+        return self._download_size
+
+    def display_information(self) -> None:
+        super().display_information()
+        print(f"   -> Type: Digital  | Download Size: {self._download_size:.2f} MB")
+
 class Inventory:
     #  manage collection of Product objects
 
