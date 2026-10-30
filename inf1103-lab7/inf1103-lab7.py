@@ -246,11 +246,27 @@ def main():
                 print("Error: Product ID already exists in data-stack.\n")
                 continue
 
+            print("Select Product Type:")
+            print("1. Physical Product")
+            print("2. Digital Product")
+            type_choice = input("Enter choice (1 or 2): ").strip()
+
+            if type_choice not in ("1", "2"):
+                print("Invalid product type selected. Operation aborted.\n")
+                continue
+
             name = input("Product Name: ").strip()
             try:
                 price = float(input("Price: "))
                 stock = int(input("Stock Quantity: "))
-                new_prod = Product(prod_id, name, price, stock)
+
+                if type_choice == "1":
+                    weight = float(input("Weight (kg): "))
+                    new_prod = PhysicalProduct(prod_id, name, price, stock, weight)
+                else:
+                    download_size = float(input("Download Size (MB): "))
+                    new_prod = DigitalProduct(prod_id, name, price, stock, download_size)
+
                 inventory.add_product(new_prod)
                 print("\nProduct added successfully!\n")
             except ValueError as e:
