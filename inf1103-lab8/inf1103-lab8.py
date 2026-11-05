@@ -3,13 +3,14 @@
 import json
 import os
 from abc import ABC, abstractmethod
+from typing import Any
 
-FILENAME = "inventory.json"
+FILENAME: str = "inventory.json"
 
 # supplier of products -> ASSOCIATION with Product (no ownership)
 class Supplier:
  
-    def __init__(self, supplier_id: str, name: str, contact_email: str):
+    def __init__(self, supplier_id: str, name: str, contact_email: str) -> None:
         self._supplier_id: str = supplier_id
         self.name: str = name
         self.contact_email: str = contact_email
@@ -24,7 +25,7 @@ class Supplier:
             f"Email: {self.contact_email}"
         )
  
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
         return {
             "id": self._supplier_id,
             "name": self.name,
@@ -32,20 +33,20 @@ class Supplier:
         }
  
     @classmethod
-    def from_dict(cls, data: dict) -> "Supplier":
+    def from_dict(cls, data: dict[str, str]) -> "Supplier":
         return cls(data["id"], data["name"], data["contact_email"])
 
 # for JSON saved by Lab 7 (no supplier field)
-UNKNOWN_SUPPLIER_DATA = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
+UNKNOWN_SUPPLIER_DATA: dict[str, str] = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
 
 # represents & manages an individual product unit
 class Product(ABC):
 
-    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier):
-        self._product_id = product_id
-        self.name = name
-        self._price = float(price)
-        self._stock = int(stock)
+    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier) -> None:
+        self._product_id: str = product_id
+        self.name: str = name
+        self._price: float = float(price)
+        self._stock: int = int(stock)
         self.supplier: Supplier = supplier  # association: a reference, not ownership
 
     @property
@@ -76,7 +77,8 @@ class Product(ABC):
     def get_fulfilment_info(self) -> str:
         pass
 
-    def to_dict(self) -> dict:
+    # a JSON record mixes strings, numbers and a nested supplier record, hence Any
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self._product_id,
             "name": self.name,
@@ -86,7 +88,7 @@ class Product(ABC):
         }
 
     @classmethod
-    def from_dict(cls, data: dict, supplier: Supplier) -> "Product":
+    def from_dict(cls, data: dict[str, Any], supplier: Supplier) -> "Product":
         prod_type = data.get("type", "physical").lower()
         if prod_type == "physical":
             return PhysicalProduct(
@@ -117,14 +119,14 @@ class CanBeShipped(ABC):
         pass
 
 # physical item that needs storage and shipping
-class PhysicalProduct(Product):
+class PhysicalProduct(Product, CanBeShipped):
 
-    SHIPPING_RATE_PER_KG = 5.00  # base calculation rule
+    SHIPPING_RATE_PER_KG: float = 5.00  # base calculation rule
 
     def __init__(self, product_id: str, name: str, price: float, stock: int,
-                 supplier: Supplier, weight: float):
+                 supplier: Supplier, weight: float) -> None:
         super().__init__(product_id, name, price, stock, supplier)
-        self._weight = float(weight)
+        self._weight: float = float(weight)
 
     @property
     def weight(self) -> float:
@@ -144,7 +146,7 @@ class PhysicalProduct(Product):
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "physical"
         data["weight"] = self._weight
@@ -154,9 +156,9 @@ class PhysicalProduct(Product):
 class DigitalProduct(Product):
 
     def __init__(self, product_id: str, name: str, price: float, stock: int,
-                 supplier: Supplier, download_size: float):
+                 supplier: Supplier, download_size: float) -> None:
         super().__init__(product_id, name, price, stock, supplier)
-        self._download_size = float(download_size)
+        self._download_size: float = float(download_size)
 
     @property
     def download_size(self) -> float:
@@ -172,35 +174,48 @@ class DigitalProduct(Product):
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "digital"
         data["download_size"] = self._download_size
         return data
 
+# AGGREGATION with Product: holds references, but does not create or own them
 class Inventory:
-    #  manage collection of Product objects
 
-    def __init__(self):
-        self._products = []
+    def __init__(self) -> None:
+        self._products: list[Product] = []
+
+    @property
+    def products(self) -> list[Product]:
+        # a copy, so the collection itself can only change through Inventory methods
+        return list(self._products)
 
     def add_product(self, product: Product) -> bool:
 
         # apends a new Product object if no duplicate ID exists
-        if self.search_product(product.product_id):
+        if self.find_product(product.product_id):
             return False
         self._products.append(product)
         return True
 
-    def search_product(self, product_id: str) -> Product | None:
-        
-        # search product by ID
+    def remove_product(self, product_id: str) -> Product | None:
+
+        # removes only the reference; the Product itself lives on and is handed back
+        product = self.find_product(product_id)
+        if product:
+            self._products.remove(product)
+        return product
+
+    def find_product(self, product_id: str) -> Product | None:
+
+        # find product by ID
         for prod in self._products:
             if prod.product_id.upper() == product_id.upper():
                 return prod
         return None
 
-    def display_all(self) -> None:
+    def display_all_products(self) -> None:
 
         # display all products stored in inventory
         print("\nCurrent Inventory")
@@ -259,6 +274,58 @@ class Inventory:
         except Exception as e:
             print(f"Unappeased friction during save operation: {e}\n")
 
+# one product and quantity within an Order
+# ASSOCIATION with Product (refers to it, does not own it)
+# only Order should create these: an OrderLine has no meaning outside its Order
+class OrderLine:
+
+    def __init__(self, product: Product, quantity: int) -> None:
+        if quantity <= 0:
+            raise ValueError("Order quantity must be greater than zero.")
+        self.product: Product = product
+        self.quantity: int = quantity
+
+    def calculate_subtotal(self) -> float:
+        return self.product.price * self.quantity
+
+    def display_information(self) -> None:
+        print(
+            f"{self.product.product_id} | {self.product.name} | "
+            f"Qty: {self.quantity} | Subtotal: ${self.calculate_subtotal():.2f}"
+        )
+
+# COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
+class Order:
+
+    def __init__(self, order_id: str) -> None:
+        self.order_id: str = order_id
+        self._order_lines: list[OrderLine] = []
+
+    @property
+    def order_lines(self) -> list[OrderLine]:
+        # a copy, so lines can only be added or removed through Order methods
+        return list(self._order_lines)
+
+    def add_order_line(self, product: Product, quantity: int) -> None:
+        order_line = OrderLine(product, quantity)
+        self._order_lines.append(order_line)
+
+    def remove_order_line(self, product_id: str) -> bool:
+        for order_line in self._order_lines:
+            if order_line.product.product_id.upper() == product_id.upper():
+                self._order_lines.remove(order_line)
+                return True
+        return False
+
+    def calculate_total(self) -> float:
+        return sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
+
+    def display_information(self) -> None:
+        print(f"Order ID: {self.order_id}")
+        for order_line in self._order_lines:
+            order_line.display_information()
+        print(f"Total: ${self.calculate_total():.2f}")
+
 def prompt_supplier() -> Supplier:
     supplier_id = input("Supplier ID: ").strip()
     name = input("Supplier Name: ").strip()
@@ -266,36 +333,63 @@ def prompt_supplier() -> Supplier:
     return Supplier(supplier_id, name, email)
 
 
-def display_menu():
+def create_order(inventory: Inventory) -> Order | None:
+    order_id = input("Order ID: ").strip()
+    order = Order(order_id)
+
+    while True:
+        prod_id = input("Product ID to order (blank to finish): ").strip()
+        if not prod_id:
+            break
+        prod = inventory.find_product(prod_id)
+        if not prod:
+            print("Product not found.")
+            continue
+        try:
+            order.add_order_line(prod, int(input(f"Quantity of {prod.name}: ")))
+        except ValueError as e:
+            print(f"Invalid quantity: {e}")
+
+    if not order.order_lines:
+        print("No order lines added. Order discarded.\n")
+        return None
+    return order
+
+
+def display_menu() -> None:
     print("---------- MENU ----------")
     print("1. Display All Products")
     print("2. Add Product")
     print("3. Update Stock")
     print("4. Search Product")
-    print("5. Save Inventory")
-    print("6. Exit")
+    print("5. Remove Product")
+    print("6. Create Order")
+    print("7. Display Orders")
+    print("8. Save Inventory")
+    print("9. Exit")
     print("--------------------------")
 
 
-def main():
+def main() -> None:
     print("=" * 45)
     print("INVENTORY MANAGEMENT SYSTEM")
     print("=" * 45 + "\n")
 
     inventory = Inventory()
     inventory.load_from_file(FILENAME)
+    orders: list[Order] = []  # kept for this session only
 
     while True:
         display_menu()
         option = input("\nEnter option: ").strip()
 
         if option == "1":
-            inventory.display_all()
+            inventory.display_all_products()
 
         elif option == "2":
             print("\nAdd New Product")
             prod_id = input("Product ID: ").strip()
-            if inventory.search_product(prod_id):
+            if inventory.find_product(prod_id):
                 print("Error: Product ID already exists in data-stack.\n")
                 continue
 
@@ -329,7 +423,7 @@ def main():
         elif option == "3":
             print("\nUpdate Stock")
             prod_id = input("Enter Product ID to update: ").strip()
-            prod = inventory.search_product(prod_id)
+            prod = inventory.find_product(prod_id)
             if prod:
                 try:
                     new_stock = int(input(f"Enter new stock for {prod.name}: "))
@@ -343,7 +437,7 @@ def main():
         elif option == "4":
             print("\nSearch Product")
             prod_id = input("Enter Product ID: ").strip()
-            prod = inventory.search_product(prod_id)
+            prod = inventory.find_product(prod_id)
             if prod:
                 print("\nProduct Found")
                 print("-" * 45)
@@ -353,16 +447,43 @@ def main():
                 print("\nProduct not found.\n")
 
         elif option == "5":
-            inventory.save_to_file(FILENAME)
+            print("\nRemove Product")
+            prod_id = input("Enter Product ID to remove: ").strip()
+            prod = inventory.remove_product(prod_id)
+            if prod:
+                print(f"{prod.name} removed from inventory.\n")
+            else:
+                print("Product not found.\n")
 
         elif option == "6":
+            print("\nCreate Order")
+            order = create_order(inventory)
+            if order:
+                orders.append(order)
+                print("\nOrder created!")
+                order.display_information()
+                print()
+
+        elif option == "7":
+            print("\nOrders")
+            print("-" * 45)
+            if not orders:
+                print("No orders created yet.")
+            for order in orders:
+                order.display_information()
+            print("-" * 45 + "\n")
+
+        elif option == "8":
+            inventory.save_to_file(FILENAME)
+
+        elif option == "9":
             print("\nSaving inventory before exit...")
             inventory.save_to_file(FILENAME)
             print("Thank you for using Inventory Management System.")
             print("Program terminated.")
             break
         else:
-            print("Invalid input. Please enter an option from 1 to 6.\n")
+            print("Invalid input. Please enter an option from 1 to 9.\n")
 
 if __name__ == "__main__":
     main()
