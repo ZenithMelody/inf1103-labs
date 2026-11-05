@@ -6,25 +6,31 @@ from abc import ABC, abstractmethod
 
 FILENAME = "inventory.json"
 
-# 1. represents a supplier entity
+# supplier of products -> ASSOCIATION with Product (no ownership)
 class Supplier:
+ 
     def __init__(self, supplier_id: str, name: str, contact_email: str):
         self._supplier_id: str = supplier_id
         self.name: str = name
         self.contact_email: str = contact_email
-
+ 
     @property
     def supplier_id(self) -> str:
         return self._supplier_id
-
+ 
     def display_information(self) -> None:
-        print(f"Supplier ID: {self._supplier_id} | Name: {self.name} | "
-              f"Email: {self.contact_email}")
-
+        print(
+            f"Supplier ID: {self._supplier_id} | Name: {self.name} | "
+            f"Email: {self.contact_email}"
+        )
+ 
     def to_dict(self) -> dict:
-        return {"id": self._supplier_id, "name": self.name,
-                "contact_email": self.contact_email}
-
+        return {
+            "id": self._supplier_id,
+            "name": self.name,
+            "contact_email": self.contact_email,
+        }
+ 
     @classmethod
     def from_dict(cls, data: dict) -> "Supplier":
         return cls(data["id"], data["name"], data["contact_email"])
@@ -35,11 +41,12 @@ UNKNOWN_SUPPLIER_DATA = {"id": "S000", "name": "Unknown Supplier", "contact_emai
 # represents & manages an individual product unit
 class Product(ABC):
 
-    def __init__(self, product_id: str, name: str, price: float, stock: int):
+    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier):
         self._product_id = product_id
         self.name = name
         self._price = float(price)
         self._stock = int(stock)
+        self.supplier: Supplier = supplier  # association: a reference, not ownership
 
     @property
     def product_id(self) -> str:
@@ -61,7 +68,8 @@ class Product(ABC):
     def display_information(self) -> None:
         print(
             f"ID: {self._product_id} | Name: {self.name} | "
-            f"Price: ${self._price:.2f} | Stock: {self._stock}"
+            f"Price: ${self._price:.2f} | Stock: {self._stock} | "
+            f"Supplier: {self.supplier.name}"
         )
 
     @abstractmethod
@@ -74,10 +82,11 @@ class Product(ABC):
             "name": self.name,
             "price": self._price,
             "stock": self._stock,
+            "supplier": self.supplier.to_dict(),
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Product":
+    def from_dict(cls, data: dict, supplier: Supplier) -> "Product":
         prod_type = data.get("type", "physical").lower()
         if prod_type == "physical":
             return PhysicalProduct(
@@ -85,6 +94,7 @@ class Product(ABC):
                 name=data["name"],
                 price=data["price"],
                 stock=data["stock"],
+                supplier=supplier,
                 weight=data.get("weight", 1.0),
             )
         elif prod_type == "digital":
@@ -93,6 +103,7 @@ class Product(ABC):
                 name=data["name"],
                 price=data["price"],
                 stock=data["stock"],
+                supplier=supplier,
                 download_size=data.get("download_size", 100.0),
             )
         else:
@@ -110,8 +121,9 @@ class PhysicalProduct(Product):
 
     SHIPPING_RATE_PER_KG = 5.00  # base calculation rule
 
-    def __init__(self, product_id: str, name: str, price: float, stock: int, weight: float):
-        super().__init__(product_id, name, price, stock)
+    def __init__(self, product_id: str, name: str, price: float, stock: int,
+                 supplier: Supplier, weight: float):
+        super().__init__(product_id, name, price, stock, supplier)
         self._weight = float(weight)
 
     @property
@@ -141,8 +153,9 @@ class PhysicalProduct(Product):
 # virtual product delivered digitally
 class DigitalProduct(Product):
 
-    def __init__(self, product_id: str, name: str, price: float, stock: int, download_size: float):
-        super().__init__(product_id, name, price, stock)
+    def __init__(self, product_id: str, name: str, price: float, stock: int,
+                 supplier: Supplier, download_size: float):
+        super().__init__(product_id, name, price, stock, supplier)
         self._download_size = float(download_size)
 
     @property
@@ -207,8 +220,13 @@ class Inventory:
             try:
                 with open(filename, "r") as f:
                     raw_data = json.load(f)
-                    for item in raw_data:
-                        self._products.append(Product.from_dict(item))
+                # one Supplier object per supplier ID, shared by its products
+                suppliers: dict[str, Supplier] = {}
+                for item in raw_data:
+                    sup_data = item.get("supplier", UNKNOWN_SUPPLIER_DATA)
+                    if sup_data["id"] not in suppliers:
+                        suppliers[sup_data["id"]] = Supplier.from_dict(sup_data)
+                    self._products.append(Product.from_dict(item, suppliers[sup_data["id"]]))
                 print(f"{filename} found.")
                 print("Inventory loaded successfully.\n")
             except Exception as e:
@@ -218,11 +236,13 @@ class Inventory:
             print(f"{filename} not found. Initializing default inventory.\n")
 
         if not self._products:
+            hardware_supplier = Supplier("S001", "TechSource Pte Ltd", "sales@techsource.com")
+            software_supplier = Supplier("S002", "SoftWorks Digital", "support@softworks.com")
             default_items = [
-                PhysicalProduct("P001", "Laptop", 1200.00, 15, 2.10),
-                PhysicalProduct("P002", "Mouse", 25.50, 40, 0.12),
-                PhysicalProduct("P003", "Keyboard", 45.00, 25, 0.85),
-                DigitalProduct("D001", "System OS Pro", 149.99, 100, 4500.0),
+                PhysicalProduct("P001", "Laptop", 1200.00, 15, hardware_supplier, 2.10),
+                PhysicalProduct("P002", "Mouse", 25.50, 40, hardware_supplier, 0.12),
+                PhysicalProduct("P003", "Keyboard", 45.00, 25, hardware_supplier, 0.85),
+                DigitalProduct("D001", "System OS Pro", 149.99, 100, software_supplier, 4500.0),
             ]
             for prod in default_items:
                 self.add_product(prod)
@@ -238,6 +258,13 @@ class Inventory:
             print(f"Inventory saved successfully to {filename}.\n")
         except Exception as e:
             print(f"Unappeased friction during save operation: {e}\n")
+
+def prompt_supplier() -> Supplier:
+    supplier_id = input("Supplier ID: ").strip()
+    name = input("Supplier Name: ").strip()
+    email = input("Supplier Email: ").strip()
+    return Supplier(supplier_id, name, email)
+
 
 def display_menu():
     print("---------- MENU ----------")
@@ -285,13 +312,14 @@ def main():
             try:
                 price = float(input("Price: "))
                 stock = int(input("Stock Quantity: "))
+                supplier = prompt_supplier()
 
                 if type_choice == "1":
                     weight = float(input("Weight (kg): "))
-                    new_prod = PhysicalProduct(prod_id, name, price, stock, weight)
+                    new_prod = PhysicalProduct(prod_id, name, price, stock, supplier, weight)
                 else:
                     download_size = float(input("Download Size (MB): "))
-                    new_prod = DigitalProduct(prod_id, name, price, stock, download_size)
+                    new_prod = DigitalProduct(prod_id, name, price, stock, supplier, download_size)
 
                 inventory.add_product(new_prod)
                 print("\nProduct added successfully!\n")
