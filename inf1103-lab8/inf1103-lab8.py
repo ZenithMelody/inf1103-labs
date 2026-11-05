@@ -119,7 +119,7 @@ class CanBeShipped(ABC):
         pass
 
 # physical item that needs storage and shipping
-class PhysicalProduct(Product):
+class PhysicalProduct(Product, CanBeShipped):
 
     SHIPPING_RATE_PER_KG: float = 5.00  # base calculation rule
 
@@ -215,7 +215,7 @@ class Inventory:
                 return prod
         return None
 
-    def display_all(self) -> None:
+    def display_all_products(self) -> None:
 
         # display all products stored in inventory
         print("\nCurrent Inventory")
@@ -357,7 +357,7 @@ def main() -> None:
         option = input("\nEnter option: ").strip()
 
         if option == "1":
-            inventory.display_all()
+            inventory.display_all_products()
 
         elif option == "2":
             print("\nAdd New Product")

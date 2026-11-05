@@ -82,7 +82,7 @@ def test_aggregation() -> None:
     assert inventory_b.add_product(product)
     assert inventory_b.find_product("P100") is product
     print("Now in Inventory B:")
-    inventory_b.display_all()
+    inventory_b.display_all_products()
 
     # emptying an inventory does not destroy its products either
     inventory_b.remove_product("P100")
@@ -186,6 +186,69 @@ def test_empty_order_total_is_a_float() -> None:
     assert total == 0.0 and type(total) is float
 
 
+# section 6.2: written against Product only, it never asks which subclass it was given
+def show_product_details(product: Product) -> None:
+    product.display_information()
+    print(product.get_fulfilment_info())
+
+
+def test_substitutability() -> None:
+    physical, digital = make_products()
+    show_product_details(physical)
+    show_product_details(digital)
+
+    # both types go through the Inventory's normal operations
+    inventory = Inventory()
+    assert inventory.add_product(physical)
+    assert inventory.add_product(digital)
+    assert inventory.find_product("P100") is physical
+    assert inventory.find_product("D100") is digital
+    inventory.display_all_products()
+    assert inventory.remove_product("D100") is digital
+    assert inventory.products == [physical]
+
+
+def test_subclasses_preserve_product_expectations() -> None:
+    # section 6.3: update_stock means the same thing on every Product
+    for product in make_products():
+        product.update_stock(5)
+        assert product.stock == 5
+        product.update_stock(0)  # zero is valid for the parent, so for subclasses too
+        assert product.stock == 0
+        try:
+            product.update_stock(-1)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("negative stock should be rejected")
+        assert product.stock == 0
+        assert isinstance(product.get_fulfilment_info(), str)
+
+
+def test_polymorphism() -> None:
+    physical, digital = make_products()
+    inventory = Inventory()
+    inventory.add_product(physical)
+    inventory.add_product(digital)
+
+    expected = {
+        "P100": "Requires physical packaging and courier shipping.",
+        "D100": "Delivered digitally via direct download link.",
+    }
+
+    # one loop, no isinstance(): each object supplies its own implementation
+    for product in inventory.products:
+        product.display_information()
+        print(product.get_fulfilment_info())
+        assert product.get_fulfilment_info() == expected[product.product_id]
+
+
+def test_physical_product_implements_can_be_shipped() -> None:
+    physical, _ = make_products()
+    assert isinstance(physical, lab.CanBeShipped)
+    assert physical.calculate_shipping_cost() == 20.00
+
+
 TESTS = [
     test_association,
     test_aggregation,
@@ -194,6 +257,10 @@ TESTS = [
     test_order_rejects_invalid_quantity,
     test_empty_order_total_is_a_float,
     test_type_hints_present,
+    test_substitutability,
+    test_subclasses_preserve_product_expectations,
+    test_polymorphism,
+    test_physical_product_implements_can_be_shipped,
 ]
 
 
