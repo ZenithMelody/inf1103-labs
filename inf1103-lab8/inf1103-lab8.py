@@ -6,6 +6,32 @@ from abc import ABC, abstractmethod
 
 FILENAME = "inventory.json"
 
+# 1. represents a supplier entity
+class Supplier:
+    def __init__(self, supplier_id: str, name: str, contact_email: str):
+        self._supplier_id: str = supplier_id
+        self.name: str = name
+        self.contact_email: str = contact_email
+
+    @property
+    def supplier_id(self) -> str:
+        return self._supplier_id
+
+    def display_information(self) -> None:
+        print(f"Supplier ID: {self._supplier_id} | Name: {self.name} | "
+              f"Email: {self.contact_email}")
+
+    def to_dict(self) -> dict:
+        return {"id": self._supplier_id, "name": self.name,
+                "contact_email": self.contact_email}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Supplier":
+        return cls(data["id"], data["name"], data["contact_email"])
+
+# for JSON saved by Lab 7 (no supplier field)
+UNKNOWN_SUPPLIER_DATA = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
+
 # represents & manages an individual product unit
 class Product(ABC):
 
