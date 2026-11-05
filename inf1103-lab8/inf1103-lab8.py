@@ -178,23 +178,36 @@ class DigitalProduct(Product):
         data["download_size"] = self._download_size
         return data
 
+# AGGREGATION with Product: holds references, but does not create or own them
 class Inventory:
-    #  manage collection of Product objects
 
-    def __init__(self):
-        self._products = []
+    def __init__(self) -> None:
+        self._products: list[Product] = []
+
+    @property
+    def products(self) -> list[Product]:
+        # a copy, so the collection itself can only change through Inventory methods
+        return list(self._products)
 
     def add_product(self, product: Product) -> bool:
 
         # apends a new Product object if no duplicate ID exists
-        if self.search_product(product.product_id):
+        if self.find_product(product.product_id):
             return False
         self._products.append(product)
         return True
 
-    def search_product(self, product_id: str) -> Product | None:
-        
-        # search product by ID
+    def remove_product(self, product_id: str) -> Product | None:
+
+        # removes only the reference; the Product itself lives on and is handed back
+        product = self.find_product(product_id)
+        if product:
+            self._products.remove(product)
+        return product
+
+    def find_product(self, product_id: str) -> Product | None:
+
+        # find product by ID
         for prod in self._products:
             if prod.product_id.upper() == product_id.upper():
                 return prod
@@ -295,7 +308,7 @@ def main():
         elif option == "2":
             print("\nAdd New Product")
             prod_id = input("Product ID: ").strip()
-            if inventory.search_product(prod_id):
+            if inventory.find_product(prod_id):
                 print("Error: Product ID already exists in data-stack.\n")
                 continue
 
@@ -329,7 +342,7 @@ def main():
         elif option == "3":
             print("\nUpdate Stock")
             prod_id = input("Enter Product ID to update: ").strip()
-            prod = inventory.search_product(prod_id)
+            prod = inventory.find_product(prod_id)
             if prod:
                 try:
                     new_stock = int(input(f"Enter new stock for {prod.name}: "))
@@ -343,7 +356,7 @@ def main():
         elif option == "4":
             print("\nSearch Product")
             prod_id = input("Enter Product ID: ").strip()
-            prod = inventory.search_product(prod_id)
+            prod = inventory.find_product(prod_id)
             if prod:
                 print("\nProduct Found")
                 print("-" * 45)

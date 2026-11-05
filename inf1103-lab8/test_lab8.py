@@ -17,6 +17,7 @@ Supplier = lab.Supplier
 Product = lab.Product
 PhysicalProduct = lab.PhysicalProduct
 DigitalProduct = lab.DigitalProduct
+Inventory = lab.Inventory
 
 
 def make_products() -> tuple[Product, Product]:
@@ -54,8 +55,53 @@ def test_association() -> None:
     assert remaining_supplier.supplier_id == "S001"
 
 
+def test_aggregation() -> None:
+    # the Product exists before any Inventory does
+    product, _ = make_products()
+    inventory_a = Inventory()
+    inventory_b = Inventory()
+
+    assert inventory_a.add_product(product)
+    assert inventory_a.find_product("P100") is product
+    assert inventory_b.find_product("P100") is None
+
+    # predict first: removing drops the reference, the Product still works
+    removed = inventory_a.remove_product("P100")
+    assert removed is product
+    assert inventory_a.find_product("P100") is None
+    assert inventory_a.products == []
+    print("After removal from Inventory A, the Product still works:")
+    product.update_stock(7)
+    product.display_information()
+    assert product.stock == 7
+
+    # the very same object moves to another inventory
+    assert inventory_b.add_product(product)
+    assert inventory_b.find_product("P100") is product
+    print("Now in Inventory B:")
+    inventory_b.display_all()
+
+    # emptying an inventory does not destroy its products either
+    inventory_b.remove_product("P100")
+    assert inventory_b.products == []
+    assert product.name == "Monitor"
+
+    # removing something that is not there is reported, not an error
+    assert inventory_b.remove_product("NOPE") is None
+
+
+def test_inventory_collection_is_encapsulated() -> None:
+    product, _ = make_products()
+    inventory = Inventory()
+    inventory.add_product(product)
+    inventory.products.clear()  # only clears the returned copy
+    assert inventory.find_product("P100") is product
+
+
 TESTS = [
     test_association,
+    test_aggregation,
+    test_inventory_collection_is_encapsulated,
 ]
 
 
