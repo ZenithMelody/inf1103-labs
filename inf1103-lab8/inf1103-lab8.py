@@ -333,14 +333,40 @@ def prompt_supplier() -> Supplier:
     return Supplier(supplier_id, name, email)
 
 
+def create_order(inventory: Inventory) -> Order | None:
+    order_id = input("Order ID: ").strip()
+    order = Order(order_id)
+
+    while True:
+        prod_id = input("Product ID to order (blank to finish): ").strip()
+        if not prod_id:
+            break
+        prod = inventory.find_product(prod_id)
+        if not prod:
+            print("Product not found.")
+            continue
+        try:
+            order.add_order_line(prod, int(input(f"Quantity of {prod.name}: ")))
+        except ValueError as e:
+            print(f"Invalid quantity: {e}")
+
+    if not order.order_lines:
+        print("No order lines added. Order discarded.\n")
+        return None
+    return order
+
+
 def display_menu() -> None:
     print("---------- MENU ----------")
     print("1. Display All Products")
     print("2. Add Product")
     print("3. Update Stock")
     print("4. Search Product")
-    print("5. Save Inventory")
-    print("6. Exit")
+    print("5. Remove Product")
+    print("6. Create Order")
+    print("7. Display Orders")
+    print("8. Save Inventory")
+    print("9. Exit")
     print("--------------------------")
 
 
@@ -351,6 +377,7 @@ def main() -> None:
 
     inventory = Inventory()
     inventory.load_from_file(FILENAME)
+    orders: list[Order] = []  # kept for this session only
 
     while True:
         display_menu()
@@ -420,16 +447,43 @@ def main() -> None:
                 print("\nProduct not found.\n")
 
         elif option == "5":
-            inventory.save_to_file(FILENAME)
+            print("\nRemove Product")
+            prod_id = input("Enter Product ID to remove: ").strip()
+            prod = inventory.remove_product(prod_id)
+            if prod:
+                print(f"{prod.name} removed from inventory.\n")
+            else:
+                print("Product not found.\n")
 
         elif option == "6":
+            print("\nCreate Order")
+            order = create_order(inventory)
+            if order:
+                orders.append(order)
+                print("\nOrder created!")
+                order.display_information()
+                print()
+
+        elif option == "7":
+            print("\nOrders")
+            print("-" * 45)
+            if not orders:
+                print("No orders created yet.")
+            for order in orders:
+                order.display_information()
+            print("-" * 45 + "\n")
+
+        elif option == "8":
+            inventory.save_to_file(FILENAME)
+
+        elif option == "9":
             print("\nSaving inventory before exit...")
             inventory.save_to_file(FILENAME)
             print("Thank you for using Inventory Management System.")
             print("Program terminated.")
             break
         else:
-            print("Invalid input. Please enter an option from 1 to 6.\n")
+            print("Invalid input. Please enter an option from 1 to 9.\n")
 
 if __name__ == "__main__":
     main()
