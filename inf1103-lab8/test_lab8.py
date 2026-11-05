@@ -18,6 +18,7 @@ Product = lab.Product
 PhysicalProduct = lab.PhysicalProduct
 DigitalProduct = lab.DigitalProduct
 Inventory = lab.Inventory
+Order = lab.Order
 
 
 def make_products() -> tuple[Product, Product]:
@@ -98,10 +99,61 @@ def test_inventory_collection_is_encapsulated() -> None:
     assert inventory.find_product("P100") is product
 
 
+def test_composition() -> None:
+    physical, digital = make_products()
+
+    order = Order("O001")
+    order.add_order_line(physical, 2)  # 2 x 200.00
+    order.add_order_line(digital, 3)   # 3 x 50.00
+    order.display_information()
+    assert order.calculate_total() == 550.00
+
+    # predict first: same Product in two Orders -> two OrderLines, one Product
+    other_order = Order("O002")
+    other_order.add_order_line(physical, 1)
+    line_a = order.order_lines[0]
+    line_b = other_order.order_lines[0]
+    print(f"OrderLine ids: {id(line_a)} and {id(line_b)} -> same object? {line_a is line_b}")
+    print(f"Product ids:   {id(line_a.product)} and {id(line_b.product)} "
+          f"-> same object? {line_a.product is line_b.product}")
+    assert line_a is not line_b
+    assert line_a.product is line_b.product is physical
+
+    # lines are removed through the Order, and only affect that Order
+    assert order.remove_order_line("P100")
+    assert not order.remove_order_line("P100")
+    assert order.calculate_total() == 150.00
+    assert other_order.calculate_total() == 200.00
+
+    # the copy from the property cannot be used to change the Order's lines
+    other_order.order_lines.clear()
+    assert len(other_order.order_lines) == 1
+
+    # the OrderLines go with the Order; the Product does not
+    del order, other_order, line_a, line_b
+    physical.display_information()
+    assert physical.name == "Monitor"
+
+
+def test_order_rejects_invalid_quantity() -> None:
+    physical, _ = make_products()
+    order = Order("O003")
+    for bad_quantity in (0, -1):
+        try:
+            order.add_order_line(physical, bad_quantity)
+        except ValueError as error:
+            print(f"Rejected quantity {bad_quantity}: {error}")
+        else:
+            raise AssertionError("quantity should have been rejected")
+    assert order.order_lines == []
+
+
 TESTS = [
     test_association,
     test_aggregation,
     test_inventory_collection_is_encapsulated,
+    test_composition,
+    test_order_rejects_invalid_quantity,
 ]
 
 

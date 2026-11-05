@@ -272,6 +272,58 @@ class Inventory:
         except Exception as e:
             print(f"Unappeased friction during save operation: {e}\n")
 
+# one product and quantity within an Order
+# ASSOCIATION with Product (refers to it, does not own it)
+# only Order should create these: an OrderLine has no meaning outside its Order
+class OrderLine:
+
+    def __init__(self, product: Product, quantity: int) -> None:
+        if quantity <= 0:
+            raise ValueError("Order quantity must be greater than zero.")
+        self.product: Product = product
+        self.quantity: int = quantity
+
+    def calculate_subtotal(self) -> float:
+        return self.product.price * self.quantity
+
+    def display_information(self) -> None:
+        print(
+            f"{self.product.product_id} | {self.product.name} | "
+            f"Qty: {self.quantity} | Subtotal: ${self.calculate_subtotal():.2f}"
+        )
+
+# COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
+class Order:
+
+    def __init__(self, order_id: str) -> None:
+        self.order_id: str = order_id
+        self._order_lines: list[OrderLine] = []
+
+    @property
+    def order_lines(self) -> list[OrderLine]:
+        # a copy, so lines can only be added or removed through Order methods
+        return list(self._order_lines)
+
+    def add_order_line(self, product: Product, quantity: int) -> None:
+        order_line = OrderLine(product, quantity)
+        self._order_lines.append(order_line)
+
+    def remove_order_line(self, product_id: str) -> bool:
+        for order_line in self._order_lines:
+            if order_line.product.product_id.upper() == product_id.upper():
+                self._order_lines.remove(order_line)
+                return True
+        return False
+
+    def calculate_total(self) -> float:
+        return sum(line.calculate_subtotal() for line in self._order_lines)
+
+    def display_information(self) -> None:
+        print(f"Order ID: {self.order_id}")
+        for order_line in self._order_lines:
+            order_line.display_information()
+        print(f"Total: ${self.calculate_total():.2f}")
+
 def prompt_supplier() -> Supplier:
     supplier_id = input("Supplier ID: ").strip()
     name = input("Supplier Name: ").strip()
