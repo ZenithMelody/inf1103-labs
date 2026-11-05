@@ -3,13 +3,14 @@
 import json
 import os
 from abc import ABC, abstractmethod
+from typing import Any
 
-FILENAME = "inventory.json"
+FILENAME: str = "inventory.json"
 
 # supplier of products -> ASSOCIATION with Product (no ownership)
 class Supplier:
  
-    def __init__(self, supplier_id: str, name: str, contact_email: str):
+    def __init__(self, supplier_id: str, name: str, contact_email: str) -> None:
         self._supplier_id: str = supplier_id
         self.name: str = name
         self.contact_email: str = contact_email
@@ -24,7 +25,7 @@ class Supplier:
             f"Email: {self.contact_email}"
         )
  
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, str]:
         return {
             "id": self._supplier_id,
             "name": self.name,
@@ -32,20 +33,20 @@ class Supplier:
         }
  
     @classmethod
-    def from_dict(cls, data: dict) -> "Supplier":
+    def from_dict(cls, data: dict[str, str]) -> "Supplier":
         return cls(data["id"], data["name"], data["contact_email"])
 
 # for JSON saved by Lab 7 (no supplier field)
-UNKNOWN_SUPPLIER_DATA = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
+UNKNOWN_SUPPLIER_DATA: dict[str, str] = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
 
 # represents & manages an individual product unit
 class Product(ABC):
 
-    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier):
-        self._product_id = product_id
-        self.name = name
-        self._price = float(price)
-        self._stock = int(stock)
+    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier) -> None:
+        self._product_id: str = product_id
+        self.name: str = name
+        self._price: float = float(price)
+        self._stock: int = int(stock)
         self.supplier: Supplier = supplier  # association: a reference, not ownership
 
     @property
@@ -76,7 +77,8 @@ class Product(ABC):
     def get_fulfilment_info(self) -> str:
         pass
 
-    def to_dict(self) -> dict:
+    # a JSON record mixes strings, numbers and a nested supplier record, hence Any
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self._product_id,
             "name": self.name,
@@ -86,7 +88,7 @@ class Product(ABC):
         }
 
     @classmethod
-    def from_dict(cls, data: dict, supplier: Supplier) -> "Product":
+    def from_dict(cls, data: dict[str, Any], supplier: Supplier) -> "Product":
         prod_type = data.get("type", "physical").lower()
         if prod_type == "physical":
             return PhysicalProduct(
@@ -119,12 +121,12 @@ class CanBeShipped(ABC):
 # physical item that needs storage and shipping
 class PhysicalProduct(Product):
 
-    SHIPPING_RATE_PER_KG = 5.00  # base calculation rule
+    SHIPPING_RATE_PER_KG: float = 5.00  # base calculation rule
 
     def __init__(self, product_id: str, name: str, price: float, stock: int,
-                 supplier: Supplier, weight: float):
+                 supplier: Supplier, weight: float) -> None:
         super().__init__(product_id, name, price, stock, supplier)
-        self._weight = float(weight)
+        self._weight: float = float(weight)
 
     @property
     def weight(self) -> float:
@@ -144,7 +146,7 @@ class PhysicalProduct(Product):
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "physical"
         data["weight"] = self._weight
@@ -154,9 +156,9 @@ class PhysicalProduct(Product):
 class DigitalProduct(Product):
 
     def __init__(self, product_id: str, name: str, price: float, stock: int,
-                 supplier: Supplier, download_size: float):
+                 supplier: Supplier, download_size: float) -> None:
         super().__init__(product_id, name, price, stock, supplier)
-        self._download_size = float(download_size)
+        self._download_size: float = float(download_size)
 
     @property
     def download_size(self) -> float:
@@ -172,7 +174,7 @@ class DigitalProduct(Product):
             f"Fulfilment: {self.get_fulfilment_info()}"
         )
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         data = super().to_dict()
         data["type"] = "digital"
         data["download_size"] = self._download_size
@@ -316,7 +318,7 @@ class Order:
         return False
 
     def calculate_total(self) -> float:
-        return sum(line.calculate_subtotal() for line in self._order_lines)
+        return sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
 
     def display_information(self) -> None:
         print(f"Order ID: {self.order_id}")
@@ -331,7 +333,7 @@ def prompt_supplier() -> Supplier:
     return Supplier(supplier_id, name, email)
 
 
-def display_menu():
+def display_menu() -> None:
     print("---------- MENU ----------")
     print("1. Display All Products")
     print("2. Add Product")
@@ -342,7 +344,7 @@ def display_menu():
     print("--------------------------")
 
 
-def main():
+def main() -> None:
     print("=" * 45)
     print("INVENTORY MANAGEMENT SYSTEM")
     print("=" * 45 + "\n")
