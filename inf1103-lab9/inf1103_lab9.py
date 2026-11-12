@@ -1,11 +1,13 @@
 # github project repo: https://github.com/ZenithMelody/inf1103-labs/tree/main
 
+import csv
 import json
 import os
 from abc import ABC, abstractmethod
 from typing import Any
 
 FILENAME: str = "inventory.json"
+PRODUCTS_FILENAME: str = "products.csv"
 
 # supplier of products -> ASSOCIATION with Product (no ownership)
 class Supplier:
@@ -420,6 +422,37 @@ def get_non_negative_int(prompt: str) -> int:
         except ValueError:
             print("Please enter a valid whole number, e.g. 10")
 
+# section 5.2: load products from a CSV file through the factory
+def load_products(path: str, inventory: Inventory, supplier: Supplier) -> None:
+    try:
+        file = open(path, newline="")
+    except FileNotFoundError:
+        print(f"Products file not found: {path}")
+    else:
+        loaded = 0
+        with file:
+            reader = csv.reader(file)
+            next(reader, None)  # skip the header row
+            for row_number, row in enumerate(reader, start=2):
+                try:
+                    # a wrong column count, a non-numeric price or stock, an unknown
+                    # type and a failed validation rule all raise ValueError
+                    product_type, product_id, name, price, stock = row
+                    prod = ProductFactory.create(
+                        product_type.strip().lower(), product_id.strip(), name.strip(),
+                        float(price), int(stock), supplier,
+                    )
+                except ValueError as e:
+                    print(f"Row {row_number} skipped ({','.join(row)}): {e}")
+                    continue
+                if inventory.add_product(prod):
+                    loaded += 1
+                else:
+                    print(f"Row {row_number} skipped ({','.join(row)}): duplicate product ID")
+        print(f"{loaded} products loaded.")
+    finally:
+        print("Load attempt finished.")
+
 def prompt_supplier() -> Supplier:
     supplier_id = input("Supplier ID: ").strip()
     name = input("Supplier Name: ").strip()
@@ -481,7 +514,8 @@ def display_menu() -> None:
     print("6. Create Order")
     print("7. Display Orders")
     print("8. Save Inventory")
-    print("9. Exit")
+    print("9. Import Products from CSV")
+    print("10. Exit")
     print("--------------------------")
 
 
@@ -596,8 +630,11 @@ def main() -> None:
             print("Thank you for using Inventory Management System.")
             print("Program terminated.")
             break
+        elif option == "10":
+            print("\nImporting products from CSV...")
+            load_products(PRODUCTS_FILENAME, inventory, make_supplier())
         else:
-            print("Invalid input. Please enter an option from 1 to 9.\n")
+            print("Invalid input. Please enter an option from 1 to 10.\n")
 
 if __name__ == "__main__":
     main()

@@ -5,7 +5,9 @@ import builtins
 import contextlib
 import inspect
 import io
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 # this file sits in tests/, so the lab folder is added to the import path first
@@ -29,9 +31,11 @@ from inf1103_lab9 import (
     OrderLine,
     get_positive_float,
     get_non_negative_int,
+    load_products,
 )
 
 PROGRAM_FILE = LAB_FOLDER / "inf1103_lab9.py"
+PRODUCTS_CSV = LAB_FOLDER / "products.csv"
 
 # ---------- helpers ----------
 
@@ -67,6 +71,14 @@ def run_with_inputs(function, *args, inputs: list[str]):
     finally:
         builtins.input = original_input
     return result, captured.getvalue()
+
+def capture_load(path: str, inventory: Inventory) -> list[str]:
+    # runs load_products, shows what it printed and returns the printed lines
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(captured):
+        load_products(path, inventory, make_supplier())
+    print(captured.getvalue(), end="")
+    return captured.getvalue().splitlines()
 
 # ---------- baseline carried over from Lab 8 ----------
 
@@ -282,6 +294,52 @@ def test_get_non_negative_int_asks_again_until_valid() -> None:
     assert len(printed.splitlines()) == 2
     assert value == 0 and type(value) is int
 
+# ---------- section 5.2: loading products from a file ----------
+
+def test_load_products_skips_bad_rows_and_keeps_good_ones() -> None:
+    # predict first (5.2): products.csv has 5 rows, 2 of them invalid
+    inventory = Inventory()
+    lines = capture_load(str(PRODUCTS_CSV), inventory)
+
+    assert [product.product_id for product in inventory.products] == ["P001", "D001", "P003"]
+    assert type(inventory.find_product("D001")) is DigitalProduct
+    assert len(lines) == 4
+    assert lines[0].startswith("Row 4 skipped") and "Unknown product type: service" in lines[0]
+    assert lines[1].startswith("Row 5 skipped") and "abc" in lines[1]
+    assert lines[2] == "3 products loaded."
+    assert lines[3] == "Load attempt finished."
+
+
+def test_load_products_handles_missing_file() -> None:
+    # predict first (5.2, second part): the file has been renamed, so it cannot be found
+    inventory = Inventory()
+    lines = capture_load("no_such_file.csv", inventory)
+
+    assert lines == ["Products file not found: no_such_file.csv", "Load attempt finished."]
+    assert inventory.products == []
+
+
+def test_load_products_reports_rows_that_break_validation() -> None:
+    rows = (
+        "product_type,product_id,name,price,stock_quantity\n"
+        "physical,P010,Free Sample,0,5\n"       # price must be greater than zero
+        "digital,D010,E-book,9.90,-2\n"         # stock cannot be negative
+        "physical,P011,Too Few Columns,5.00\n"  # a column is missing
+        "physical,P012,Stapler,6.50,4\n"        # valid
+        "physical,P012,Stapler Again,6.50,4\n"  # duplicate product ID
+    )
+    with tempfile.NamedTemporaryFile("w", suffix=".csv", delete=False, newline="") as file:
+        file.write(rows)
+    try:
+        inventory = Inventory()
+        lines = capture_load(file.name, inventory)
+    finally:
+        os.remove(file.name)
+
+    assert [product.product_id for product in inventory.products] == ["P012"]
+    assert sum(line.startswith("Row ") for line in lines) == 4
+    assert lines[-2:] == ["1 products loaded.", "Load attempt finished."]
+
 TESTS = [
     test_order_total_without_discount,
     test_each_strategy_applies_its_own_rule,
@@ -303,6 +361,9 @@ TESTS = [
     test_order_line_quantity_must_be_positive,
     test_get_positive_float_asks_again_until_valid,
     test_get_non_negative_int_asks_again_until_valid,
+    test_load_products_skips_bad_rows_and_keeps_good_ones,
+    test_load_products_handles_missing_file,
+    test_load_products_reports_rows_that_break_validation,
 ]
 
 
