@@ -20,6 +20,7 @@ from inf1103_lab9 import (
     BulkDiscount,
     StudentDiscount,
     DISCOUNT_CHOICES,
+    ProductFactory,
 )
 
 # ---------- helpers ----------
@@ -133,6 +134,31 @@ def test_discount_menu_offers_only_strategies() -> None:
         assert isinstance(strategy, DiscountStrategy)
     assert any(isinstance(strategy, StudentDiscount) for _, strategy in DISCOUNT_CHOICES.values())
 
+# ---------- section 3: Factory ----------
+
+def test_factory_creates_the_right_product_types() -> None:
+    supplier = make_supplier()
+    physical = ProductFactory.create("physical", "P100", "Monitor", 200.00, 10, supplier, weight=4.0)
+    digital = ProductFactory.create("digital", "D100", "Antivirus", 50.00, 99, supplier,
+                                    download_size=300.0)
+    assert type(physical) is PhysicalProduct and physical.weight == 4.0
+    assert type(digital) is DigitalProduct and digital.download_size == 300.0
+    assert physical.supplier is supplier and digital.supplier is supplier
+
+    # the caller only uses methods every Product has
+    for product in (physical, digital):
+        product.display_information()
+        print(product.get_fulfilment_info())
+
+
+def test_factory_rejects_unknown_product_type() -> None:
+    # predict first (3.2)
+    message = expect_value_error(
+        lambda: ProductFactory.create("service", "S001", "Installation", 30.00, 5, make_supplier()),
+        "product type 'service'",
+    )
+    assert message == "Unknown product type: service"
+
 
 TESTS = [
     test_order_total_without_discount,
@@ -144,6 +170,8 @@ TESTS = [
     test_two_orders_can_share_one_strategy,
     test_new_strategy_needs_no_change_to_order,
     test_discount_menu_offers_only_strategies,
+    test_factory_creates_the_right_product_types,
+    test_factory_rejects_unknown_product_type,
 ]
 
 

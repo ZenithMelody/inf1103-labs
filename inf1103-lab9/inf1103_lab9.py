@@ -179,6 +179,24 @@ class DigitalProduct(Product):
         data["type"] = "digital"
         data["download_size"] = self._download_size
         return data
+        
+# used when a source (old JSON, the products CSV) does not supply these details
+DEFAULT_WEIGHT: float = 1.0            # kg
+DEFAULT_DOWNLOAD_SIZE: float = 100.0   # MB
+
+# FACTORY pattern: the one place that decides which Product class to create
+class ProductFactory:
+
+    @staticmethod
+    def create(product_type: str, product_id: str, name: str, price: float, stock: int,
+               supplier: Supplier, weight: float = DEFAULT_WEIGHT,
+               download_size: float = DEFAULT_DOWNLOAD_SIZE) -> Product:
+        if product_type == "physical":
+            return PhysicalProduct(product_id, name, price, stock, supplier, weight)
+        elif product_type == "digital":
+            return DigitalProduct(product_id, name, price, stock, supplier, download_size)
+        else:
+            raise ValueError(f"Unknown product type: {product_type}")
 
 # AGGREGATION with Product: holds references, but does not create or own them
 class Inventory:
