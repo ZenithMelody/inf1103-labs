@@ -1,275 +1,489 @@
-# Link to repo: https://github.com/ZenithMelody/inf1103-labs/tree/main
+# github project repo: https://github.com/ZenithMelody/inf1103-labs/tree/main
 
-import importlib.util
-import inspect
-import sys
-from pathlib import Path
+import json
+import os
+from abc import ABC, abstractmethod
+from typing import Any
 
-# the program's file name has a hyphen, so a normal import statement cannot load it
-_spec = importlib.util.spec_from_file_location(
-    "inf1103_lab8", Path(__file__).with_name("inf1103-lab8.py")
-)
-lab = importlib.util.module_from_spec(_spec)
-sys.modules["inf1103_lab8"] = lab
-_spec.loader.exec_module(lab)
+FILENAME: str = "inventory.json"
 
-Supplier = lab.Supplier
-Product = lab.Product
-PhysicalProduct = lab.PhysicalProduct
-DigitalProduct = lab.DigitalProduct
-Inventory = lab.Inventory
-Order = lab.Order
-OrderLine = lab.OrderLine
+# supplier of products -> ASSOCIATION with Product (no ownership)
+class Supplier:
+ 
+    def __init__(self, supplier_id: str, name: str, contact_email: str) -> None:
+        self._supplier_id: str = supplier_id
+        self.name: str = name
+        self.contact_email: str = contact_email
+ 
+    @property
+    def supplier_id(self) -> str:
+        return self._supplier_id
+ 
+    def display_information(self) -> None:
+        print(
+            f"Supplier ID: {self._supplier_id} | Name: {self.name} | "
+            f"Email: {self.contact_email}"
+        )
+ 
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "id": self._supplier_id,
+            "name": self.name,
+            "contact_email": self.contact_email,
+        }
+ 
+    @classmethod
+    def from_dict(cls, data: dict[str, str]) -> "Supplier":
+        return cls(data["id"], data["name"], data["contact_email"])
 
+# for JSON saved by Lab 7 (no supplier field)
+UNKNOWN_SUPPLIER_DATA: dict[str, str] = {"id": "S000", "name": "Unknown Supplier", "contact_email": "n/a"}
 
-def make_products() -> tuple[Product, Product]:
-    supplier = Supplier("S100", "Test Supplier", "test@supplier.com")
-    physical = PhysicalProduct("P100", "Monitor", 200.00, 10, supplier, 4.0)
-    digital = DigitalProduct("D100", "Antivirus", 50.00, 99, supplier, 300.0)
-    return physical, digital
+# represents & manages an individual product unit
+class Product(ABC):
 
+    def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier) -> None:
+        self._product_id: str = product_id
+        self.name: str = name
+        self._price: float = float(price)
+        self._stock: int = int(stock)
+        self.supplier: Supplier = supplier  # association: a reference, not ownership
 
-def test_association() -> None:
-    supplier = Supplier("S001", "TechSource Pte Ltd", "sales@techsource.com")
-    physical = PhysicalProduct("P001", "Laptop", 1200.00, 15, supplier, 2.10)
-    digital = DigitalProduct("D001", "System OS Pro", 149.99, 100, supplier, 4500.0)
+    @property
+    def product_id(self) -> str:
+        return self._product_id
 
-    print("Supplier information through each Product:")
-    physical.supplier.display_information()
-    digital.supplier.display_information()
+    @property
+    def price(self) -> float:
+        return self._price
 
-    # one Supplier object is shared; the Product stores a reference, not a copy
-    assert physical.supplier is supplier
-    assert digital.supplier is supplier
+    @property
+    def stock(self) -> int:
+        return self._stock
 
-    # predict first: del only removes this variable name, not the Supplier object
-    del supplier
-    print("After 'del supplier':")
-    physical.supplier.display_information()
-    digital.supplier.display_information()
-    assert physical.supplier.name == "TechSource Pte Ltd"
+    def update_stock(self, new_stock: int) -> None:
+        if new_stock < 0:
+            raise ValueError("Stock quantity cannot be negative.")
+        self._stock = new_stock
 
-    # and the other way round: the Supplier outlives its Products
-    remaining_supplier = physical.supplier
-    del physical, digital
-    print("After deleting both products:")
-    remaining_supplier.display_information()
-    assert remaining_supplier.supplier_id == "S001"
+    def display_information(self) -> None:
+        print(
+            f"ID: {self._product_id} | Name: {self.name} | "
+            f"Price: ${self._price:.2f} | Stock: {self._stock} | "
+            f"Supplier: {self.supplier.name}"
+        )
 
+    @abstractmethod
+    def get_fulfilment_info(self) -> str:
+        pass
 
-def test_aggregation() -> None:
-    # the Product exists before any Inventory does
-    product, _ = make_products()
-    inventory_a = Inventory()
-    inventory_b = Inventory()
+    # a JSON record mixes strings, numbers and a nested supplier record, hence Any
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self._product_id,
+            "name": self.name,
+            "price": self._price,
+            "stock": self._stock,
+            "supplier": self.supplier.to_dict(),
+        }
 
-    assert inventory_a.add_product(product)
-    assert inventory_a.find_product("P100") is product
-    assert inventory_b.find_product("P100") is None
-
-    # predict first: removing drops the reference, the Product still works
-    removed = inventory_a.remove_product("P100")
-    assert removed is product
-    assert inventory_a.find_product("P100") is None
-    assert inventory_a.products == []
-    print("After removal from Inventory A, the Product still works:")
-    product.update_stock(7)
-    product.display_information()
-    assert product.stock == 7
-
-    # the very same object moves to another inventory
-    assert inventory_b.add_product(product)
-    assert inventory_b.find_product("P100") is product
-    print("Now in Inventory B:")
-    inventory_b.display_all_products()
-
-    # emptying an inventory does not destroy its products either
-    inventory_b.remove_product("P100")
-    assert inventory_b.products == []
-    assert product.name == "Monitor"
-
-    # removing something that is not there is reported, not an error
-    assert inventory_b.remove_product("NOPE") is None
-
-
-def test_inventory_collection_is_encapsulated() -> None:
-    product, _ = make_products()
-    inventory = Inventory()
-    inventory.add_product(product)
-    inventory.products.clear()  # only clears the returned copy
-    assert inventory.find_product("P100") is product
-
-
-def test_composition() -> None:
-    physical, digital = make_products()
-
-    order = Order("O001")
-    order.add_order_line(physical, 2)  # 2 x 200.00
-    order.add_order_line(digital, 3)   # 3 x 50.00
-    order.display_information()
-    assert order.calculate_total() == 550.00
-
-    # predict first: same Product in two Orders -> two OrderLines, one Product
-    other_order = Order("O002")
-    other_order.add_order_line(physical, 1)
-    line_a = order.order_lines[0]
-    line_b = other_order.order_lines[0]
-    print(f"OrderLine ids: {id(line_a)} and {id(line_b)} -> same object? {line_a is line_b}")
-    print(f"Product ids:   {id(line_a.product)} and {id(line_b.product)} "
-          f"-> same object? {line_a.product is line_b.product}")
-    assert line_a is not line_b
-    assert line_a.product is line_b.product is physical
-
-    # lines are removed through the Order, and only affect that Order
-    assert order.remove_order_line("P100")
-    assert not order.remove_order_line("P100")
-    assert order.calculate_total() == 150.00
-    assert other_order.calculate_total() == 200.00
-
-    # the copy from the property cannot be used to change the Order's lines
-    other_order.order_lines.clear()
-    assert len(other_order.order_lines) == 1
-
-    # the OrderLines go with the Order; the Product does not
-    del order, other_order, line_a, line_b
-    physical.display_information()
-    assert physical.name == "Monitor"
-
-
-def test_order_rejects_invalid_quantity() -> None:
-    physical, _ = make_products()
-    order = Order("O003")
-    for bad_quantity in (0, -1):
-        try:
-            order.add_order_line(physical, bad_quantity)
-        except ValueError as error:
-            print(f"Rejected quantity {bad_quantity}: {error}")
+    @classmethod
+    def from_dict(cls, data: dict[str, Any], supplier: Supplier) -> "Product":
+        prod_type = data.get("type", "physical").lower()
+        if prod_type == "physical":
+            return PhysicalProduct(
+                product_id=data["id"],
+                name=data["name"],
+                price=data["price"],
+                stock=data["stock"],
+                supplier=supplier,
+                weight=data.get("weight", 1.0),
+            )
+        elif prod_type == "digital":
+            return DigitalProduct(
+                product_id=data["id"],
+                name=data["name"],
+                price=data["price"],
+                stock=data["stock"],
+                supplier=supplier,
+                download_size=data.get("download_size", 100.0),
+            )
         else:
-            raise AssertionError("quantity should have been rejected")
-    assert order.order_lines == []
+            raise ValueError(f"Unknown product type identifier: {prod_type}")
 
+# products that can be shipped physically
+class CanBeShipped(ABC):
 
-def test_type_hints_present() -> None:
-    # every parameter and return value of every method is annotated
-    missing = []
-    for cls in (Supplier, Product, PhysicalProduct, DigitalProduct, lab.CanBeShipped,
-                Inventory, OrderLine, Order):
-        for name, member in vars(cls).items():
-            if name.startswith("__") and name != "__init__":
-                continue  # generated by Python, e.g. __annotate_func__
-            function = member.fget if isinstance(member, property) else member
-            function = getattr(function, "__func__", function)
-            if not inspect.isfunction(function):
-                continue
-            signature = inspect.signature(function)
-            if signature.return_annotation is inspect.Signature.empty:
-                missing.append(f"{cls.__name__}.{name} return")
-            for parameter in signature.parameters.values():
-                if parameter.name not in ("self", "cls") and parameter.annotation is inspect.Parameter.empty:
-                    missing.append(f"{cls.__name__}.{name}({parameter.name})")
-    assert not missing, missing
+    @abstractmethod
+    def calculate_shipping_cost(self) -> float:
+        pass
 
-    # the types chosen in the design
-    print("Inventory.products ->", inspect.signature(Inventory.products.fget).return_annotation)
-    print("Inventory.find_product ->", inspect.signature(Inventory.find_product).return_annotation)
-    print("Order.order_lines ->", inspect.signature(Order.order_lines.fget).return_annotation)
-    print("Order.add_order_line ->", inspect.signature(Order.add_order_line))
-    assert inspect.signature(Product.__init__).parameters["supplier"].annotation is Supplier
-    assert inspect.signature(Inventory.products.fget).return_annotation == list[Product]
-    assert inspect.signature(Inventory.find_product).return_annotation == (Product | None)
-    assert inspect.signature(Order.order_lines.fget).return_annotation == list[OrderLine]
+# physical item that needs storage and shipping
+class PhysicalProduct(Product, CanBeShipped):
 
+    SHIPPING_RATE_PER_KG: float = 5.00  # base calculation rule
 
-def test_empty_order_total_is_a_float() -> None:
-    total = Order("O004").calculate_total()
-    assert total == 0.0 and type(total) is float
+    def __init__(self, product_id: str, name: str, price: float, stock: int,
+                 supplier: Supplier, weight: float) -> None:
+        super().__init__(product_id, name, price, stock, supplier)
+        self._weight: float = float(weight)
 
+    @property
+    def weight(self) -> float:
+        return self._weight
 
-# section 6.2: written against Product only, it never asks which subclass it was given
-def show_product_details(product: Product) -> None:
-    product.display_information()
-    print(product.get_fulfilment_info())
+    def get_fulfilment_info(self) -> str:
+        return "Requires physical packaging and courier shipping."
 
+    def calculate_shipping_cost(self) -> float:
+        return self._weight * self.SHIPPING_RATE_PER_KG
 
-def test_substitutability() -> None:
-    physical, digital = make_products()
-    show_product_details(physical)
-    show_product_details(digital)
+    def display_information(self) -> None:
+        super().display_information()
+        print(
+            f"   -> Type: Physical | Weight: {self._weight:.2f} kg | "
+            f"Shipping Cost: ${self.calculate_shipping_cost():.2f} | "
+            f"Fulfilment: {self.get_fulfilment_info()}"
+        )
 
-    # both types go through the Inventory's normal operations
-    inventory = Inventory()
-    assert inventory.add_product(physical)
-    assert inventory.add_product(digital)
-    assert inventory.find_product("P100") is physical
-    assert inventory.find_product("D100") is digital
-    inventory.display_all_products()
-    assert inventory.remove_product("D100") is digital
-    assert inventory.products == [physical]
+    def to_dict(self) -> dict[str, Any]:
+        data = super().to_dict()
+        data["type"] = "physical"
+        data["weight"] = self._weight
+        return data
 
+# virtual product delivered digitally
+class DigitalProduct(Product):
 
-def test_subclasses_preserve_product_expectations() -> None:
-    # section 6.3: update_stock means the same thing on every Product
-    for product in make_products():
-        product.update_stock(5)
-        assert product.stock == 5
-        product.update_stock(0)  # zero is valid for the parent, so for subclasses too
-        assert product.stock == 0
-        try:
-            product.update_stock(-1)
-        except ValueError:
-            pass
+    def __init__(self, product_id: str, name: str, price: float, stock: int,
+                 supplier: Supplier, download_size: float) -> None:
+        super().__init__(product_id, name, price, stock, supplier)
+        self._download_size: float = float(download_size)
+
+    @property
+    def download_size(self) -> float:
+        return self._download_size
+
+    def get_fulfilment_info(self) -> str:
+        return "Delivered digitally via direct download link."
+
+    def display_information(self) -> None:
+        super().display_information()
+        print(
+            f"   -> Type: Digital  | Download Size: {self._download_size:.2f} MB | "
+            f"Fulfilment: {self.get_fulfilment_info()}"
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        data = super().to_dict()
+        data["type"] = "digital"
+        data["download_size"] = self._download_size
+        return data
+
+# AGGREGATION with Product: holds references, but does not create or own them
+class Inventory:
+
+    def __init__(self) -> None:
+        self._products: list[Product] = []
+
+    @property
+    def products(self) -> list[Product]:
+        # a copy, so the collection itself can only change through Inventory methods
+        return list(self._products)
+
+    def add_product(self, product: Product) -> bool:
+
+        # apends a new Product object if no duplicate ID exists
+        if self.find_product(product.product_id):
+            return False
+        self._products.append(product)
+        return True
+
+    def remove_product(self, product_id: str) -> Product | None:
+
+        # removes only the reference; the Product itself lives on and is handed back
+        product = self.find_product(product_id)
+        if product:
+            self._products.remove(product)
+        return product
+
+    def find_product(self, product_id: str) -> Product | None:
+
+        # find product by ID
+        for prod in self._products:
+            if prod.product_id.upper() == product_id.upper():
+                return prod
+        return None
+
+    def display_all_products(self) -> None:
+
+        # display all products stored in inventory
+        print("\nCurrent Inventory")
+        print("-" * 45)
+        if not self._products:
+            print("Inventory stack is currently empty.")
         else:
-            raise AssertionError("negative stock should be rejected")
-        assert product.stock == 0
-        assert isinstance(product.get_fulfilment_info(), str)
+            for prod in self._products:
+                prod.display_information()
+        print("-" * 45 + "\n")
+
+    def load_from_file(self, filename: str) -> None:
+
+        # load products from JSON file 
+        self._products = []
+        if os.path.exists(filename):
+            try:
+                with open(filename, "r") as f:
+                    raw_data = json.load(f)
+                # one Supplier object per supplier ID, shared by its products
+                suppliers: dict[str, Supplier] = {}
+                for item in raw_data:
+                    sup_data = item.get("supplier", UNKNOWN_SUPPLIER_DATA)
+                    if sup_data["id"] not in suppliers:
+                        suppliers[sup_data["id"]] = Supplier.from_dict(sup_data)
+                    self._products.append(Product.from_dict(item, suppliers[sup_data["id"]]))
+                print(f"{filename} found.")
+                print("Inventory loaded successfully.\n")
+            except Exception as e:
+                print(f"Malfunction loading inventory data: {e}\n")
+                self._products = []
+        else:
+            print(f"{filename} not found. Initializing default inventory.\n")
+
+        if not self._products:
+            hardware_supplier = Supplier("S001", "TechSource Pte Ltd", "sales@techsource.com")
+            software_supplier = Supplier("S002", "SoftWorks Digital", "support@softworks.com")
+            default_items = [
+                PhysicalProduct("P001", "Laptop", 1200.00, 15, hardware_supplier, 2.10),
+                PhysicalProduct("P002", "Mouse", 25.50, 40, hardware_supplier, 0.12),
+                PhysicalProduct("P003", "Keyboard", 45.00, 25, hardware_supplier, 0.85),
+                DigitalProduct("D001", "System OS Pro", 149.99, 100, software_supplier, 4500.0),
+            ]
+            for prod in default_items:
+                self.add_product(prod)
+
+    def save_to_file(self, filename: str) -> None:
+
+        # save/write inventory state to JSON file
+        print("Saving inventory...")
+        try:
+            data = [prod.to_dict() for prod in self._products]
+            with open(filename, "w") as f:
+                json.dump(data, f, indent=4)
+            print(f"Inventory saved successfully to {filename}.\n")
+        except Exception as e:
+            print(f"Unappeased friction during save operation: {e}\n")
+
+# one product and quantity within an Order
+# ASSOCIATION with Product (refers to it, does not own it)
+# only Order should create these: an OrderLine has no meaning outside its Order
+class OrderLine:
+
+    def __init__(self, product: Product, quantity: int) -> None:
+        if quantity <= 0:
+            raise ValueError("Order quantity must be greater than zero.")
+        self.product: Product = product
+        self.quantity: int = quantity
+
+    def calculate_subtotal(self) -> float:
+        return self.product.price * self.quantity
+
+    def display_information(self) -> None:
+        print(
+            f"{self.product.product_id} | {self.product.name} | "
+            f"Qty: {self.quantity} | Subtotal: ${self.calculate_subtotal():.2f}"
+        )
+
+# COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
+class Order:
+
+    def __init__(self, order_id: str) -> None:
+        self.order_id: str = order_id
+        self._order_lines: list[OrderLine] = []
+
+    @property
+    def order_lines(self) -> list[OrderLine]:
+        # a copy, so lines can only be added or removed through Order methods
+        return list(self._order_lines)
+
+    def add_order_line(self, product: Product, quantity: int) -> None:
+        order_line = OrderLine(product, quantity)
+        self._order_lines.append(order_line)
+
+    def remove_order_line(self, product_id: str) -> bool:
+        for order_line in self._order_lines:
+            if order_line.product.product_id.upper() == product_id.upper():
+                self._order_lines.remove(order_line)
+                return True
+        return False
+
+    def calculate_total(self) -> float:
+        return sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
+
+    def display_information(self) -> None:
+        print(f"Order ID: {self.order_id}")
+        for order_line in self._order_lines:
+            order_line.display_information()
+        print(f"Total: ${self.calculate_total():.2f}")
+
+def prompt_supplier() -> Supplier:
+    supplier_id = input("Supplier ID: ").strip()
+    name = input("Supplier Name: ").strip()
+    email = input("Supplier Email: ").strip()
+    return Supplier(supplier_id, name, email)
 
 
-def test_polymorphism() -> None:
-    physical, digital = make_products()
-    inventory = Inventory()
-    inventory.add_product(physical)
-    inventory.add_product(digital)
+def create_order(inventory: Inventory) -> Order | None:
+    order_id = input("Order ID: ").strip()
+    order = Order(order_id)
 
-    expected = {
-        "P100": "Requires physical packaging and courier shipping.",
-        "D100": "Delivered digitally via direct download link.",
-    }
+    while True:
+        prod_id = input("Product ID to order (blank to finish): ").strip()
+        if not prod_id:
+            break
+        prod = inventory.find_product(prod_id)
+        if not prod:
+            print("Product not found.")
+            continue
+        try:
+            order.add_order_line(prod, int(input(f"Quantity of {prod.name}: ")))
+        except ValueError as e:
+            print(f"Invalid quantity: {e}")
 
-    # one loop, no isinstance(): each object supplies its own implementation
-    for product in inventory.products:
-        product.display_information()
-        print(product.get_fulfilment_info())
-        assert product.get_fulfilment_info() == expected[product.product_id]
+    if not order.order_lines:
+        print("No order lines added. Order discarded.\n")
+        return None
+    return order
 
 
-def test_physical_product_implements_can_be_shipped() -> None:
-    physical, _ = make_products()
-    assert isinstance(physical, lab.CanBeShipped)
-    assert physical.calculate_shipping_cost() == 20.00
-
-
-TESTS = [
-    test_association,
-    test_aggregation,
-    test_inventory_collection_is_encapsulated,
-    test_composition,
-    test_order_rejects_invalid_quantity,
-    test_empty_order_total_is_a_float,
-    test_type_hints_present,
-    test_substitutability,
-    test_subclasses_preserve_product_expectations,
-    test_polymorphism,
-    test_physical_product_implements_can_be_shipped,
-]
+def display_menu() -> None:
+    print("---------- MENU ----------")
+    print("1. Display All Products")
+    print("2. Add Product")
+    print("3. Update Stock")
+    print("4. Search Product")
+    print("5. Remove Product")
+    print("6. Create Order")
+    print("7. Display Orders")
+    print("8. Save Inventory")
+    print("9. Exit")
+    print("--------------------------")
 
 
 def main() -> None:
-    for test in TESTS:
-        print(f"\n=== {test.__name__} ===")
-        test()
-        print("PASS")
-    print(f"\nAll {len(TESTS)} tests passed.")
+    print("=" * 45)
+    print("INVENTORY MANAGEMENT SYSTEM")
+    print("=" * 45 + "\n")
 
+    inventory = Inventory()
+    inventory.load_from_file(FILENAME)
+    orders: list[Order] = []  # kept for this session only
+
+    while True:
+        display_menu()
+        option = input("\nEnter option: ").strip()
+
+        if option == "1":
+            inventory.display_all_products()
+
+        elif option == "2":
+            print("\nAdd New Product")
+            prod_id = input("Product ID: ").strip()
+            if inventory.find_product(prod_id):
+                print("Error: Product ID already exists in data-stack.\n")
+                continue
+
+            print("Select Product Type:")
+            print("1. Physical Product")
+            print("2. Digital Product")
+            type_choice = input("Enter choice (1 or 2): ").strip()
+
+            if type_choice not in ("1", "2"):
+                print("Invalid product type selected. Operation aborted.\n")
+                continue
+
+            name = input("Product Name: ").strip()
+            try:
+                price = float(input("Price: "))
+                stock = int(input("Stock Quantity: "))
+                supplier = prompt_supplier()
+
+                if type_choice == "1":
+                    weight = float(input("Weight (kg): "))
+                    new_prod = PhysicalProduct(prod_id, name, price, stock, supplier, weight)
+                else:
+                    download_size = float(input("Download Size (MB): "))
+                    new_prod = DigitalProduct(prod_id, name, price, stock, supplier, download_size)
+
+                inventory.add_product(new_prod)
+                print("\nProduct added successfully!\n")
+            except ValueError as e:
+                print(f"Data type mismatch or invalid value: {e}\n")
+
+        elif option == "3":
+            print("\nUpdate Stock")
+            prod_id = input("Enter Product ID to update: ").strip()
+            prod = inventory.find_product(prod_id)
+            if prod:
+                try:
+                    new_stock = int(input(f"Enter new stock for {prod.name}: "))
+                    prod.update_stock(new_stock)
+                    print("Stock updated successfully!\n")
+                except ValueError:
+                    print("Invalid stock entry. Operation aborted.\n")
+            else:
+                print("Product not found.\n")
+
+        elif option == "4":
+            print("\nSearch Product")
+            prod_id = input("Enter Product ID: ").strip()
+            prod = inventory.find_product(prod_id)
+            if prod:
+                print("\nProduct Found")
+                print("-" * 45)
+                prod.display_information()
+                print("-" * 45 + "\n")
+            else:
+                print("\nProduct not found.\n")
+
+        elif option == "5":
+            print("\nRemove Product")
+            prod_id = input("Enter Product ID to remove: ").strip()
+            prod = inventory.remove_product(prod_id)
+            if prod:
+                print(f"{prod.name} removed from inventory.\n")
+            else:
+                print("Product not found.\n")
+
+        elif option == "6":
+            print("\nCreate Order")
+            order = create_order(inventory)
+            if order:
+                orders.append(order)
+                print("\nOrder created!")
+                order.display_information()
+                print()
+
+        elif option == "7":
+            print("\nOrders")
+            print("-" * 45)
+            if not orders:
+                print("No orders created yet.")
+            for order in orders:
+                order.display_information()
+            print("-" * 45 + "\n")
+
+        elif option == "8":
+            inventory.save_to_file(FILENAME)
+
+        elif option == "9":
+            print("\nSaving inventory before exit...")
+            inventory.save_to_file(FILENAME)
+            print("Thank you for using Inventory Management System.")
+            print("Program terminated.")
+            break
+        else:
+            print("Invalid input. Please enter an option from 1 to 9.\n")
 
 if __name__ == "__main__":
     main()
