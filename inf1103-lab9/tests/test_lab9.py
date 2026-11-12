@@ -1,7 +1,9 @@
 # Lab 9 tests. Run from the inf1103-lab9 folder with: python tests/test_lab9.py
 # Each test prints its output (for evidence) and asserts the expected behaviour.
 
+import contextlib
 import inspect
+import io
 import sys
 from pathlib import Path
 
@@ -21,7 +23,11 @@ from inf1103_lab9 import (
     StudentDiscount,
     DISCOUNT_CHOICES,
     ProductFactory,
+    Product,
+    Inventory,
 )
+
+PROGRAM_FILE = LAB_FOLDER / "inf1103_lab9.py"
 
 # ---------- helpers ----------
 
@@ -159,6 +165,37 @@ def test_factory_rejects_unknown_product_type() -> None:
     )
     assert message == "Unknown product type: service"
 
+def test_products_are_created_through_the_factory() -> None:
+    # predict first (3.3): where does the program still name the concrete classes?
+    program = PROGRAM_FILE.read_text()
+    outside_factory = program.replace(inspect.getsource(ProductFactory), "")
+    for constructor in ("PhysicalProduct(", "DigitalProduct("):
+        lines = [line.strip() for line in outside_factory.splitlines() if constructor in line]
+        print(f"{constructor}...) outside ProductFactory: {lines}")
+        # the one remaining match is the class definition itself
+        assert len(lines) == 1 and lines[0].startswith("class ")
+
+
+def test_from_dict_goes_through_the_factory() -> None:
+    record = {"id": "D200", "name": "Editor", "price": 10.0, "stock": 1, "type": "digital",
+              "download_size": 55.0}
+    product = Product.from_dict(record, make_supplier())
+    assert type(product) is DigitalProduct and product.download_size == 55.0
+    message = expect_value_error(
+        lambda: Product.from_dict({**record, "type": "bundle"}, make_supplier()),
+        "saved record of type 'bundle'",
+    )
+    assert message == "Unknown product type: bundle"
+
+
+def test_default_inventory_is_built_by_the_factory() -> None:
+    inventory = Inventory()
+    with contextlib.redirect_stdout(io.StringIO()):
+        inventory.load_from_file("no_such_inventory.json")  # falls back to the default items
+    inventory.display_all_products()
+    assert [product.product_id for product in inventory.products] == ["P001", "P002", "P003", "D001"]
+    assert type(inventory.find_product("D001")) is DigitalProduct
+    assert inventory.find_product("P001").weight == 2.10
 
 TESTS = [
     test_order_total_without_discount,
@@ -172,6 +209,9 @@ TESTS = [
     test_discount_menu_offers_only_strategies,
     test_factory_creates_the_right_product_types,
     test_factory_rejects_unknown_product_type,
+    test_products_are_created_through_the_factory,
+    test_from_dict_goes_through_the_factory,
+    test_default_inventory_is_built_by_the_factory,
 ]
 
 

@@ -89,27 +89,17 @@ class Product(ABC):
 
     @classmethod
     def from_dict(cls, data: dict[str, Any], supplier: Supplier) -> "Product":
-        prod_type = data.get("type", "physical").lower()
-        if prod_type == "physical":
-            return PhysicalProduct(
-                product_id=data["id"],
-                name=data["name"],
-                price=data["price"],
-                stock=data["stock"],
-                supplier=supplier,
-                weight=data.get("weight", 1.0),
-            )
-        elif prod_type == "digital":
-            return DigitalProduct(
-                product_id=data["id"],
-                name=data["name"],
-                price=data["price"],
-                stock=data["stock"],
-                supplier=supplier,
-                download_size=data.get("download_size", 100.0),
-            )
-        else:
-            raise ValueError(f"Unknown product type identifier: {prod_type}")
+        # creation is delegated to the factory, so the type decision lives in one place
+        return ProductFactory.create(
+            data.get("type", "physical").lower(),
+            data["id"],
+            data["name"],
+            data["price"],
+            data["stock"],
+            supplier,
+            weight=data.get("weight", DEFAULT_WEIGHT),
+            download_size=data.get("download_size", DEFAULT_DOWNLOAD_SIZE),
+        )
 
 # products that can be shipped physically
 class CanBeShipped(ABC):
@@ -179,7 +169,7 @@ class DigitalProduct(Product):
         data["type"] = "digital"
         data["download_size"] = self._download_size
         return data
-        
+
 # used when a source (old JSON, the products CSV) does not supply these details
 DEFAULT_WEIGHT: float = 1.0            # kg
 DEFAULT_DOWNLOAD_SIZE: float = 100.0   # MB
@@ -272,10 +262,10 @@ class Inventory:
             hardware_supplier = Supplier("S001", "TechSource Pte Ltd", "sales@techsource.com")
             software_supplier = Supplier("S002", "SoftWorks Digital", "support@softworks.com")
             default_items = [
-                PhysicalProduct("P001", "Laptop", 1200.00, 15, hardware_supplier, 2.10),
-                PhysicalProduct("P002", "Mouse", 25.50, 40, hardware_supplier, 0.12),
-                PhysicalProduct("P003", "Keyboard", 45.00, 25, hardware_supplier, 0.85),
-                DigitalProduct("D001", "System OS Pro", 149.99, 100, software_supplier, 4500.0),
+                ProductFactory.create("physical", "P001", "Laptop", 1200.00, 15, hardware_supplier, weight=2.10),
+                ProductFactory.create("physical", "P002", "Mouse", 25.50, 40, hardware_supplier, weight=0.12),
+                ProductFactory.create("physical", "P003", "Keyboard", 45.00, 25, hardware_supplier, weight=0.85),
+                ProductFactory.create("digital", "D001", "System OS Pro", 149.99, 100, software_supplier, download_size=4500.0),
             ]
             for prod in default_items:
                 self.add_product(prod)
@@ -446,6 +436,8 @@ def create_order(inventory: Inventory) -> Order | None:
         order.set_discount(choose_discount())
     return order
 
+# menu choice -> the product type name the factory understands
+PRODUCT_TYPE_CHOICES: dict[str, str] = {"1": "physical", "2": "digital"}
 
 def display_menu() -> None:
     print("---------- MENU ----------")
@@ -489,9 +481,10 @@ def main() -> None:
             print("2. Digital Product")
             type_choice = input("Enter choice (1 or 2): ").strip()
 
-            if type_choice not in ("1", "2"):
+            if type_choice not in PRODUCT_TYPE_CHOICES:
                 print("Invalid product type selected. Operation aborted.\n")
                 continue
+            product_type = PRODUCT_TYPE_CHOICES[type_choice]
 
             name = input("Product Name: ").strip()
             try:
@@ -499,12 +492,15 @@ def main() -> None:
                 stock = int(input("Stock Quantity: "))
                 supplier = prompt_supplier()
 
-                if type_choice == "1":
+                # main only asks for the details; the factory picks the class
+                if product_type == "physical":
                     weight = float(input("Weight (kg): "))
-                    new_prod = PhysicalProduct(prod_id, name, price, stock, supplier, weight)
+                    new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
+                                                     supplier, weight=weight)
                 else:
                     download_size = float(input("Download Size (MB): "))
-                    new_prod = DigitalProduct(prod_id, name, price, stock, supplier, download_size)
+                    new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
+                                                     supplier, download_size=download_size)
 
                 inventory.add_product(new_prod)
                 print("\nProduct added successfully!\n")
