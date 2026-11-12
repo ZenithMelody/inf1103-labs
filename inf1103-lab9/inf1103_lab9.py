@@ -333,6 +333,14 @@ class BulkDiscount(DiscountStrategy):
             return total - self.amount
         return total
 
+# section 2.4: a fourth strategy, added without touching Order
+class StudentDiscount(DiscountStrategy):
+
+    STUDENT_RATE: float = 5.0  # percent
+
+    def apply(self, total: float) -> float:
+        return total * (1 - self.STUDENT_RATE / 100)
+
 # COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
 # ASSOCIATION with DiscountStrategy: uses the one it is given, does not own it
 class Order:
@@ -378,6 +386,24 @@ def prompt_supplier() -> Supplier:
     email = input("Supplier Email: ").strip()
     return Supplier(supplier_id, name, email)
 
+# menu choice -> strategy object; a new discount is one more entry here, Order is untouched
+DISCOUNT_CHOICES: dict[str, tuple[str, DiscountStrategy]] = {
+    "1": ("No discount", NoDiscount()),
+    "2": ("10% off", PercentageDiscount(10)),
+    "3": ("$20 off orders of $200 or more", BulkDiscount(200, 20)),
+    "4": ("Student discount (5% off)", StudentDiscount()),
+}
+
+
+def choose_discount() -> DiscountStrategy:
+    print("Select Discount:")
+    for key, (label, _) in DISCOUNT_CHOICES.items():
+        print(f"{key}. {label}")
+    while True:
+        choice = input("Enter choice: ").strip()
+        if choice in DISCOUNT_CHOICES:
+            return DISCOUNT_CHOICES[choice][1]
+        print("Please enter one of the listed numbers.")
 
 def create_order(inventory: Inventory) -> Order | None:
     order_id = input("Order ID: ").strip()
@@ -399,6 +425,7 @@ def create_order(inventory: Inventory) -> Order | None:
     if not order.order_lines:
         print("No order lines added. Order discarded.\n")
         return None
+        order.set_discount(choose_discount())
     return order
 
 

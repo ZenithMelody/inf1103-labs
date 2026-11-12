@@ -18,8 +18,9 @@ from inf1103_lab9 import (
     NoDiscount,
     PercentageDiscount,
     BulkDiscount,
+    StudentDiscount,
+    DISCOUNT_CHOICES,
 )
-
 
 # ---------- helpers ----------
 
@@ -58,10 +59,11 @@ def test_each_strategy_applies_its_own_rule() -> None:
     assert BulkDiscount(200, 20).apply(250.0) == 230.0
     assert BulkDiscount(200, 20).apply(200.0) == 180.0    # exactly on the threshold counts
     assert BulkDiscount(200, 20).apply(199.99) == 199.99  # below it, no discount
+    assert StudentDiscount().apply(200.0) == 190.0
     print(f"NoDiscount on 250.00:             {NoDiscount().apply(250.0):.2f}")
     print(f"PercentageDiscount(10) on 250.00: {PercentageDiscount(10).apply(250.0):.2f}")
     print(f"BulkDiscount(200, 20) on 250.00:  {BulkDiscount(200, 20).apply(250.0):.2f}")
-
+    print(f"StudentDiscount on 200.00:        {StudentDiscount().apply(200.0):.2f}")
 
 def test_discount_strategy_is_abstract() -> None:
     try:
@@ -110,6 +112,27 @@ def test_two_orders_can_share_one_strategy() -> None:
     print(f"After deleting one order, the other still totals {order_b.calculate_total():.2f}")
     assert order_b.calculate_total() == 225.00
 
+def test_new_strategy_needs_no_change_to_order() -> None:
+    # predict first (2.1): a strategy Order has never seen, defined here in the test file
+    class HalfPriceDiscount(DiscountStrategy):
+        def apply(self, total: float) -> float:
+            return total / 2
+
+    order = make_order_of_250(HalfPriceDiscount())
+    print(f"HalfPriceDiscount, written outside the program: {order.calculate_total():.2f}")
+    assert order.calculate_total() == 125.00
+
+    order.set_discount(StudentDiscount())
+    print(f"StudentDiscount:                                {order.calculate_total():.2f}")
+    assert order.calculate_total() == 237.50
+
+
+def test_discount_menu_offers_only_strategies() -> None:
+    for key, (label, strategy) in DISCOUNT_CHOICES.items():
+        print(f"{key}. {label} -> {type(strategy).__name__}")
+        assert isinstance(strategy, DiscountStrategy)
+    assert any(isinstance(strategy, StudentDiscount) for _, strategy in DISCOUNT_CHOICES.values())
+
 
 TESTS = [
     test_order_total_without_discount,
@@ -119,6 +142,8 @@ TESTS = [
     test_set_discount_changes_strategy_on_existing_order,
     test_order_has_no_discount_if_elif_logic,
     test_two_orders_can_share_one_strategy,
+    test_new_strategy_needs_no_change_to_order,
+    test_discount_menu_offers_only_strategies,
 ]
 
 
