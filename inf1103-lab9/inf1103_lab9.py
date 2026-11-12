@@ -332,12 +332,18 @@ class BulkDiscount(DiscountStrategy):
         if total >= self.threshold:
             return total - self.amount
         return total
-        
+
+# COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
+# ASSOCIATION with DiscountStrategy: uses the one it is given, does not own it
 class Order:
 
-    def __init__(self, order_id: str) -> None:
+    def __init__(self, order_id: str, discount: DiscountStrategy | None = None) -> None:
         self.order_id: str = order_id
         self._order_lines: list[OrderLine] = []
+        self.discount: DiscountStrategy = discount if discount is not None else NoDiscount()
+
+    def set_discount(self, discount: DiscountStrategy) -> None:
+        self.discount = discount
 
     @property
     def order_lines(self) -> list[OrderLine]:
@@ -356,7 +362,9 @@ class Order:
         return False
 
     def calculate_total(self) -> float:
-        return sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
+        # Order does not know which kind of discount it has: the strategy decides
+        total = sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
+        return self.discount.apply(total)
 
     def display_information(self) -> None:
         print(f"Order ID: {self.order_id}")

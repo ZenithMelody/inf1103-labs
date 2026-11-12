@@ -1,6 +1,7 @@
 # Lab 9 tests. Run from the inf1103-lab9 folder with: python tests/test_lab9.py
 # Each test prints its output (for evidence) and asserts the expected behaviour.
 
+import inspect
 import sys
 from pathlib import Path
 
@@ -26,9 +27,9 @@ def make_supplier() -> Supplier:
     return Supplier("S100", "Test Supplier", "test@supplier.com")
 
 
-def make_order_of_250() -> Order:
+def make_order_of_250(discount: DiscountStrategy | None = None) -> Order:
     supplier = make_supplier()
-    order = Order("O001")
+    order = Order("O001", discount)
     order.add_order_line(PhysicalProduct("P100", "Monitor", 200.00, 10, supplier, 4.0), 1)
     order.add_order_line(DigitalProduct("D100", "Antivirus", 50.00, 99, supplier, 300.0), 1)
     return order
@@ -72,11 +73,52 @@ def test_discount_strategy_is_abstract() -> None:
     expect_value_error(lambda: PercentageDiscount(150), "percentage 150")
     expect_value_error(lambda: BulkDiscount(200, -20), "bulk amount -20")
 
+def test_order_defaults_to_no_discount() -> None:
+    order = make_order_of_250()
+    assert isinstance(order.discount, NoDiscount)
+    assert order.calculate_total() == 250.00
+    print(f"No strategy given -> {type(order.discount).__name__}, total {order.calculate_total():.2f}")
+
+
+def test_set_discount_changes_strategy_on_existing_order() -> None:
+    # predict first (2.3): the lines add up to 250
+    order = make_order_of_250(BulkDiscount(200, 20))
+    print(f"BulkDiscount(200, 20):  {order.calculate_total():.2f}")
+    assert order.calculate_total() == 230.00
+
+    order.set_discount(PercentageDiscount(10))
+    print(f"PercentageDiscount(10): {order.calculate_total():.2f}")
+    assert order.calculate_total() == 225.00
+
+
+def test_order_has_no_discount_if_elif_logic() -> None:
+    source = inspect.getsource(Order.calculate_total)
+    print(source)
+    assert "if " not in source and "elif" not in source
+    assert "self.discount.apply(" in source
+
+
+def test_two_orders_can_share_one_strategy() -> None:
+    # predict first (2.4): does the Order own its strategy, or just use it?
+    shared = PercentageDiscount(10)
+    order_a = make_order_of_250(shared)
+    order_b = make_order_of_250(shared)
+    print(f"Same strategy object in both orders? {order_a.discount is order_b.discount}")
+    assert order_a.discount is order_b.discount is shared
+
+    del order_a
+    print(f"After deleting one order, the other still totals {order_b.calculate_total():.2f}")
+    assert order_b.calculate_total() == 225.00
+
 
 TESTS = [
     test_order_total_without_discount,
     test_each_strategy_applies_its_own_rule,
     test_discount_strategy_is_abstract,
+    test_order_defaults_to_no_discount,
+    test_set_discount_changes_strategy_on_existing_order,
+    test_order_has_no_discount_if_elif_logic,
+    test_two_orders_can_share_one_strategy,
 ]
 
 
