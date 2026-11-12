@@ -1,6 +1,7 @@
 # Lab 9 tests. Run from the inf1103-lab9 folder with: python tests/test_lab9.py
 # Each test prints its output (for evidence) and asserts the expected behaviour.
 
+import builtins
 import contextlib
 import inspect
 import io
@@ -26,6 +27,8 @@ from inf1103_lab9 import (
     Product,
     Inventory,
     OrderLine,
+    get_positive_float,
+    get_non_negative_int,
 )
 
 PROGRAM_FILE = LAB_FOLDER / "inf1103_lab9.py"
@@ -51,6 +54,19 @@ def expect_value_error(action, label: str) -> str:
         print(f"Rejected {label}: {error}")
         return str(error)
     raise AssertionError(f"{label} should have raised ValueError")
+
+def run_with_inputs(function, *args, inputs: list[str]):
+    # calls function(*args) with input() answered from the list; returns (result, printed text)
+    answers = iter(inputs)
+    original_input = builtins.input
+    builtins.input = lambda prompt="": next(answers)
+    captured = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(captured):
+            result = function(*args)
+    finally:
+        builtins.input = original_input
+    return result, captured.getvalue()
 
 # ---------- baseline carried over from Lab 8 ----------
 
@@ -245,6 +261,27 @@ def test_order_line_quantity_must_be_positive() -> None:
                            f"add_order_line quantity {bad_quantity}")
     assert len(order.order_lines) == 2  # nothing was added
 
+# ---------- section 5.1: user input ----------
+
+def test_get_positive_float_asks_again_until_valid() -> None:
+    # predict first (5.1): the user enters abc, then -5, then 12.50
+    value, printed = run_with_inputs(get_positive_float, "Price: ", inputs=["abc", "-5", "12.50"])
+    print(printed, end="")
+    print(f"Returned: {value!r}")
+    assert printed.splitlines() == [
+        "Please enter a valid number, e.g. 12.50",
+        "Please enter a number greater than zero.",
+    ]
+    assert value == 12.5 and type(value) is float
+
+
+def test_get_non_negative_int_asks_again_until_valid() -> None:
+    value, printed = run_with_inputs(get_non_negative_int, "Stock: ", inputs=["ten", "-3", "0"])
+    print(printed, end="")
+    print(f"Returned: {value!r}")
+    assert len(printed.splitlines()) == 2
+    assert value == 0 and type(value) is int
+
 TESTS = [
     test_order_total_without_discount,
     test_each_strategy_applies_its_own_rule,
@@ -264,6 +301,8 @@ TESTS = [
     test_negative_stock_is_rejected,
     test_validation_applies_to_every_product_type,
     test_order_line_quantity_must_be_positive,
+    test_get_positive_float_asks_again_until_valid,
+    test_get_non_negative_int_asks_again_until_valid,
 ]
 
 

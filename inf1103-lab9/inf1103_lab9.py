@@ -395,6 +395,31 @@ class Order:
             order_line.display_information()
         print(f"Total: ${self.calculate_total():.2f}")
 
+# section 5.1: keeps asking until the user gives a number greater than zero
+def get_positive_float(prompt: str) -> float:
+    while True:
+        try:
+            value = float(input(prompt))
+            if value <= 0:
+                print("Please enter a number greater than zero.")
+                continue
+            return value
+        except ValueError:
+            print("Please enter a valid number, e.g. 12.50")
+
+
+# the same idea for whole numbers that may be zero, e.g. a stock quantity
+def get_non_negative_int(prompt: str) -> int:
+    while True:
+        try:
+            value = int(input(prompt))
+            if value < 0:
+                print("Please enter a whole number that is zero or more.")
+                continue
+            return value
+        except ValueError:
+            print("Please enter a valid whole number, e.g. 10")
+
 def prompt_supplier() -> Supplier:
     supplier_id = input("Supplier ID: ").strip()
     name = input("Supplier Name: ").strip()
@@ -494,37 +519,32 @@ def main() -> None:
             product_type = PRODUCT_TYPE_CHOICES[type_choice]
 
             name = input("Product Name: ").strip()
-            try:
-                price = float(input("Price: "))
-                stock = int(input("Stock Quantity: "))
-                supplier = prompt_supplier()
+            # each helper keeps asking until it has a valid value, so nothing here can fail
+            price = get_positive_float("Price: ")
+            stock = get_non_negative_int("Stock Quantity: ")
+            supplier = prompt_supplier()
 
-                # main only asks for the details; the factory picks the class
-                if product_type == "physical":
-                    weight = float(input("Weight (kg): "))
-                    new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
-                                                     supplier, weight=weight)
-                else:
-                    download_size = float(input("Download Size (MB): "))
-                    new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
-                                                     supplier, download_size=download_size)
+            # main only asks for the details; the factory picks the class
+            if product_type == "physical":
+                weight = get_positive_float("Weight (kg): ")
+                new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
+                                                 supplier, weight=weight)
+            else:
+                download_size = get_positive_float("Download Size (MB): ")
+                new_prod = ProductFactory.create(product_type, prod_id, name, price, stock,
+                                                 supplier, download_size=download_size)
 
-                inventory.add_product(new_prod)
-                print("\nProduct added successfully!\n")
-            except ValueError as e:
-                print(f"Data type mismatch or invalid value: {e}\n")
+            inventory.add_product(new_prod)
+            print("\nProduct added successfully!\n")
 
         elif option == "3":
             print("\nUpdate Stock")
             prod_id = input("Enter Product ID to update: ").strip()
             prod = inventory.find_product(prod_id)
             if prod:
-                try:
-                    new_stock = int(input(f"Enter new stock for {prod.name}: "))
-                    prod.update_stock(new_stock)
-                    print("Stock updated successfully!\n")
-                except ValueError:
-                    print("Invalid stock entry. Operation aborted.\n")
+                new_stock = get_non_negative_int(f"Enter new stock for {prod.name}: ")
+                prod.update_stock(new_stock)
+                print("Stock updated successfully!\n")
             else:
                 print("Product not found.\n")
 
