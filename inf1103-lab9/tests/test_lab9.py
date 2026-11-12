@@ -340,6 +340,17 @@ def test_load_products_reports_rows_that_break_validation() -> None:
     assert sum(line.startswith("Row ") for line in lines) == 4
     assert lines[-2:] == ["1 products loaded.", "Load attempt finished."]
 
+# ---------- section 7: each except is specific ----------
+
+def test_every_except_names_a_specific_exception() -> None:
+    program = PROGRAM_FILE.read_text()
+    except_lines = [line.strip() for line in program.splitlines() if line.strip().startswith("except")]
+    print("except clauses in the program:")
+    for line in except_lines:
+        print(f"  {line}")
+        assert line != "except:" and "Exception" not in line
+    assert except_lines
+
 TESTS = [
     test_order_total_without_discount,
     test_each_strategy_applies_its_own_rule,
@@ -364,6 +375,7 @@ TESTS = [
     test_load_products_skips_bad_rows_and_keeps_good_ones,
     test_load_products_handles_missing_file,
     test_load_products_reports_rows_that_break_validation,
+    test_every_except_names_a_specific_exception,
 ]
 
 

@@ -261,7 +261,8 @@ class Inventory:
                     self._products.append(Product.from_dict(item, suppliers[sup_data["id"]]))
                 print(f"{filename} found.")
                 print("Inventory loaded successfully.\n")
-            except Exception as e:
+            except (ValueError, KeyError) as e:
+                # ValueError: broken JSON or an invalid product; KeyError: a missing field
                 print(f"Malfunction loading inventory data: {e}\n")
                 self._products = []
         else:
@@ -288,7 +289,8 @@ class Inventory:
             with open(filename, "w") as f:
                 json.dump(data, f, indent=4)
             print(f"Inventory saved successfully to {filename}.\n")
-        except Exception as e:
+        except OSError as e:
+            # the file could not be written, e.g. no permission or a full disk
             print(f"Unappeased friction during save operation: {e}\n")
 
 # one product and quantity within an Order
