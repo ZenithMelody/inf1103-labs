@@ -25,6 +25,7 @@ from inf1103_lab9 import (
     ProductFactory,
     Product,
     Inventory,
+    OrderLine,
 )
 
 PROGRAM_FILE = LAB_FOLDER / "inf1103_lab9.py"
@@ -197,6 +198,53 @@ def test_default_inventory_is_built_by_the_factory() -> None:
     assert type(inventory.find_product("D001")) is DigitalProduct
     assert inventory.find_product("P001").weight == 2.10
 
+# ---------- section 4: validation ----------
+
+def test_invalid_price_is_rejected() -> None:
+    for bad_price in (0, -5):
+        message = expect_value_error(
+            lambda: ProductFactory.create("physical", "P1", "Lamp", bad_price, 1, make_supplier()),
+            f"price {bad_price}",
+        )
+        assert message == "Price must be greater than zero."
+
+
+def test_negative_stock_is_rejected() -> None:
+    message = expect_value_error(
+        lambda: ProductFactory.create("physical", "P1", "Lamp", 25.00, -1, make_supplier()),
+        "stock -1",
+    )
+    assert message == "Stock quantity cannot be negative."
+    # zero stock is valid
+    assert ProductFactory.create("physical", "P1", "Lamp", 25.00, 0, make_supplier()).stock == 0
+
+
+def test_validation_applies_to_every_product_type() -> None:
+    # predict first (4): can DigitalProduct skip or change the rules Product sets?
+    for product_type in ("physical", "digital"):
+        expect_value_error(
+            lambda: ProductFactory.create(product_type, "X1", "Item", -1.00, 1, make_supplier()),
+            f"{product_type} product with price -1.00",
+        )
+        expect_value_error(
+            lambda: ProductFactory.create(product_type, "X1", "Item", 1.00, -1, make_supplier()),
+            f"{product_type} product with stock -1",
+        )
+        product = ProductFactory.create(product_type, "X1", "Item", 1.00, 5, make_supplier())
+        expect_value_error(lambda: product.update_stock(-1), f"{product_type} update_stock(-1)")
+        assert product.stock == 5  # unchanged after the rejected update
+
+
+def test_order_line_quantity_must_be_positive() -> None:
+    order = make_order_of_250()
+    product = order.order_lines[0].product
+    for bad_quantity in (0, -1):
+        expect_value_error(lambda: OrderLine(product, bad_quantity),
+                           f"OrderLine quantity {bad_quantity}")
+        expect_value_error(lambda: order.add_order_line(product, bad_quantity),
+                           f"add_order_line quantity {bad_quantity}")
+    assert len(order.order_lines) == 2  # nothing was added
+
 TESTS = [
     test_order_total_without_discount,
     test_each_strategy_applies_its_own_rule,
@@ -212,6 +260,10 @@ TESTS = [
     test_products_are_created_through_the_factory,
     test_from_dict_goes_through_the_factory,
     test_default_inventory_is_built_by_the_factory,
+    test_invalid_price_is_rejected,
+    test_negative_stock_is_rejected,
+    test_validation_applies_to_every_product_type,
+    test_order_line_quantity_must_be_positive,
 ]
 
 

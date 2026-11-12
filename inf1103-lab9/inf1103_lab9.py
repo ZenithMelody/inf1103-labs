@@ -43,10 +43,17 @@ UNKNOWN_SUPPLIER_DATA: dict[str, str] = {"id": "S000", "name": "Unknown Supplier
 class Product(ABC):
 
     def __init__(self, product_id: str, name: str, price: float, stock: int, supplier: Supplier) -> None:
+        price = float(price)
+        stock = int(stock)
+        # validation: Product owns these rules, so every subclass and caller gets them
+        if price <= 0:
+            raise ValueError("Price must be greater than zero.")
+        if stock < 0:
+            raise ValueError("Stock quantity cannot be negative.")
         self._product_id: str = product_id
         self.name: str = name
-        self._price: float = float(price)
-        self._stock: int = int(stock)
+        self._price: float = price
+        self._stock: int = stock
         self.supplier: Supplier = supplier  # association: a reference, not ownership
 
     @property
