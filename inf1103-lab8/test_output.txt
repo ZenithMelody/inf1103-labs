@@ -1,0 +1,89 @@
+
+=== test_association ===
+Supplier information through each Product:
+Supplier ID: S001 | Name: TechSource Pte Ltd | Email: sales@techsource.com
+Supplier ID: S001 | Name: TechSource Pte Ltd | Email: sales@techsource.com
+After 'del supplier':
+Supplier ID: S001 | Name: TechSource Pte Ltd | Email: sales@techsource.com
+Supplier ID: S001 | Name: TechSource Pte Ltd | Email: sales@techsource.com
+After deleting both products:
+Supplier ID: S001 | Name: TechSource Pte Ltd | Email: sales@techsource.com
+PASS
+
+=== test_aggregation ===
+After removal from Inventory A, the Product still works:
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 7 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+Now in Inventory B:
+
+Current Inventory
+---------------------------------------------
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 7 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+---------------------------------------------
+
+PASS
+
+=== test_inventory_collection_is_encapsulated ===
+PASS
+
+=== test_composition ===
+Order ID: O001
+P100 | Monitor | Qty: 2 | Subtotal: $400.00
+D100 | Antivirus | Qty: 3 | Subtotal: $150.00
+Total: $550.00
+OrderLine ids: 130143301510416 and 130143301510928 -> same object? False
+Product ids:   130143301510352 and 130143301510352 -> same object? True
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 10 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+PASS
+
+=== test_order_rejects_invalid_quantity ===
+Rejected quantity 0: Order quantity must be greater than zero.
+Rejected quantity -1: Order quantity must be greater than zero.
+PASS
+
+=== test_empty_order_total_is_a_float ===
+PASS
+
+=== test_type_hints_present ===
+Inventory.products -> list[inf1103_lab8.Product]
+Inventory.find_product -> inf1103_lab8.Product | None
+Order.order_lines -> list[inf1103_lab8.OrderLine]
+Order.add_order_line -> (self, product: inf1103_lab8.Product, quantity: int) -> None
+PASS
+
+=== test_substitutability ===
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 10 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+Requires physical packaging and courier shipping.
+ID: D100 | Name: Antivirus | Price: $50.00 | Stock: 99 | Supplier: Test Supplier
+   -> Type: Digital  | Download Size: 300.00 MB | Fulfilment: Delivered digitally via direct download link.
+Delivered digitally via direct download link.
+
+Current Inventory
+---------------------------------------------
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 10 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+ID: D100 | Name: Antivirus | Price: $50.00 | Stock: 99 | Supplier: Test Supplier
+   -> Type: Digital  | Download Size: 300.00 MB | Fulfilment: Delivered digitally via direct download link.
+---------------------------------------------
+
+PASS
+
+=== test_subclasses_preserve_product_expectations ===
+PASS
+
+=== test_polymorphism ===
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 10 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+Requires physical packaging and courier shipping.
+ID: D100 | Name: Antivirus | Price: $50.00 | Stock: 99 | Supplier: Test Supplier
+   -> Type: Digital  | Download Size: 300.00 MB | Fulfilment: Delivered digitally via direct download link.
+Delivered digitally via direct download link.
+PASS
+
+=== test_physical_product_implements_can_be_shipped ===
+PASS
+
+All 11 tests passed.
