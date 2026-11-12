@@ -295,6 +295,44 @@ class OrderLine:
         )
 
 # COMPOSITION with OrderLine: creates and manages its lines, which go when it goes
+# STRATEGY pattern: one class per way of discounting an order total
+class DiscountStrategy(ABC):
+
+    @abstractmethod
+    def apply(self, total: float) -> float:
+        pass
+
+# the default: the total is left unchanged
+class NoDiscount(DiscountStrategy):
+
+    def apply(self, total: float) -> float:
+        return total
+
+# e.g. PercentageDiscount(10) takes 10% off
+class PercentageDiscount(DiscountStrategy):
+
+    def __init__(self, percentage: float) -> None:
+        if not 0 <= percentage <= 100:
+            raise ValueError("Discount percentage must be between 0 and 100.")
+        self.percentage: float = percentage
+
+    def apply(self, total: float) -> float:
+        return total * (1 - self.percentage / 100)
+
+# e.g. BulkDiscount(200, 20) takes 20 off any total of 200 or more
+class BulkDiscount(DiscountStrategy):
+
+    def __init__(self, threshold: float, amount: float) -> None:
+        if threshold < 0 or amount < 0:
+            raise ValueError("Discount threshold and amount cannot be negative.")
+        self.threshold: float = threshold
+        self.amount: float = amount
+
+    def apply(self, total: float) -> float:
+        if total >= self.threshold:
+            return total - self.amount
+        return total
+        
 class Order:
 
     def __init__(self, order_id: str) -> None:

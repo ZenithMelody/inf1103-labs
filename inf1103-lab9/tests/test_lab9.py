@@ -13,6 +13,10 @@ from inf1103_lab9 import (
     PhysicalProduct,
     DigitalProduct,
     Order,
+    DiscountStrategy,
+    NoDiscount,
+    PercentageDiscount,
+    BulkDiscount,
 )
 
 
@@ -29,6 +33,14 @@ def make_order_of_250() -> Order:
     order.add_order_line(DigitalProduct("D100", "Antivirus", 50.00, 99, supplier, 300.0), 1)
     return order
 
+def expect_value_error(action, label: str) -> str:
+    # runs action() and checks that it raises ValueError; returns the message
+    try:
+        action()
+    except ValueError as error:
+        print(f"Rejected {label}: {error}")
+        return str(error)
+    raise AssertionError(f"{label} should have raised ValueError")
 
 # ---------- baseline carried over from Lab 8 ----------
 
@@ -37,9 +49,34 @@ def test_order_total_without_discount() -> None:
     order.display_information()
     assert order.calculate_total() == 250.00
 
+# ---------- section 2: Strategy ----------
+
+def test_each_strategy_applies_its_own_rule() -> None:
+    assert NoDiscount().apply(250.0) == 250.0
+    assert PercentageDiscount(10).apply(250.0) == 225.0
+    assert BulkDiscount(200, 20).apply(250.0) == 230.0
+    assert BulkDiscount(200, 20).apply(200.0) == 180.0    # exactly on the threshold counts
+    assert BulkDiscount(200, 20).apply(199.99) == 199.99  # below it, no discount
+    print(f"NoDiscount on 250.00:             {NoDiscount().apply(250.0):.2f}")
+    print(f"PercentageDiscount(10) on 250.00: {PercentageDiscount(10).apply(250.0):.2f}")
+    print(f"BulkDiscount(200, 20) on 250.00:  {BulkDiscount(200, 20).apply(250.0):.2f}")
+
+
+def test_discount_strategy_is_abstract() -> None:
+    try:
+        DiscountStrategy()
+    except TypeError as error:
+        print(f"DiscountStrategy cannot be instantiated: {error}")
+    else:
+        raise AssertionError("DiscountStrategy should be abstract")
+    expect_value_error(lambda: PercentageDiscount(150), "percentage 150")
+    expect_value_error(lambda: BulkDiscount(200, -20), "bulk amount -20")
+
 
 TESTS = [
     test_order_total_without_discount,
+    test_each_strategy_applies_its_own_rule,
+    test_discount_strategy_is_abstract,
 ]
 
 
