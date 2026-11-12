@@ -1,0 +1,163 @@
+﻿
+=== test_order_total_without_discount ===
+Order ID: O001
+P100 | Monitor | Qty: 1 | Subtotal: $200.00
+D100 | Antivirus | Qty: 1 | Subtotal: $50.00
+Total: $250.00
+PASS
+
+=== test_each_strategy_applies_its_own_rule ===
+NoDiscount on 250.00:             250.00
+PercentageDiscount(10) on 250.00: 225.00
+BulkDiscount(200, 20) on 250.00:  230.00
+StudentDiscount on 200.00:        190.00
+PASS
+
+=== test_discount_strategy_is_abstract ===
+DiscountStrategy cannot be instantiated: Can't instantiate abstract class DiscountStrategy with abstract method apply
+Rejected percentage 150: Discount percentage must be between 0 and 100.
+Rejected bulk amount -20: Discount threshold and amount cannot be negative.
+PASS
+
+=== test_order_defaults_to_no_discount ===
+No strategy given -> NoDiscount, total 250.00
+PASS
+
+=== test_set_discount_changes_strategy_on_existing_order ===
+BulkDiscount(200, 20):  230.00
+PercentageDiscount(10): 225.00
+PASS
+
+=== test_order_has_no_discount_if_elif_logic ===
+    def calculate_total(self) -> float:
+        # Order does not know which kind of discount it has: the strategy decides
+        total = sum((line.calculate_subtotal() for line in self._order_lines), 0.0)
+        return self.discount.apply(total)
+
+PASS
+
+=== test_two_orders_can_share_one_strategy ===
+Same strategy object in both orders? True
+After deleting one order, the other still totals 225.00
+PASS
+
+=== test_new_strategy_needs_no_change_to_order ===
+HalfPriceDiscount, written outside the program: 125.00
+StudentDiscount:                                237.50
+PASS
+
+=== test_discount_menu_offers_only_strategies ===
+1. No discount -> NoDiscount
+2. 10% off -> PercentageDiscount
+3. $20 off orders of $200 or more -> BulkDiscount
+4. Student discount (5% off) -> StudentDiscount
+PASS
+
+=== test_factory_creates_the_right_product_types ===
+ID: P100 | Name: Monitor | Price: $200.00 | Stock: 10 | Supplier: Test Supplier
+   -> Type: Physical | Weight: 4.00 kg | Shipping Cost: $20.00 | Fulfilment: Requires physical packaging and courier shipping.
+Requires physical packaging and courier shipping.
+ID: D100 | Name: Antivirus | Price: $50.00 | Stock: 99 | Supplier: Test Supplier
+   -> Type: Digital  | Download Size: 300.00 MB | Fulfilment: Delivered digitally via direct download link.
+Delivered digitally via direct download link.
+PASS
+
+=== test_factory_rejects_unknown_product_type ===
+Rejected product type 'service': Unknown product type: service
+PASS
+
+=== test_products_are_created_through_the_factory ===
+PhysicalProduct(...) outside ProductFactory: ['class PhysicalProduct(Product, CanBeShipped):']
+DigitalProduct(...) outside ProductFactory: ['class DigitalProduct(Product):']
+PASS
+
+=== test_from_dict_goes_through_the_factory ===
+Rejected saved record of type 'bundle': Unknown product type: bundle
+PASS
+
+=== test_default_inventory_is_built_by_the_factory ===
+
+Current Inventory
+---------------------------------------------
+ID: P001 | Name: Laptop | Price: $1200.00 | Stock: 15 | Supplier: TechSource Pte Ltd
+   -> Type: Physical | Weight: 2.10 kg | Shipping Cost: $10.50 | Fulfilment: Requires physical packaging and courier shipping.
+ID: P002 | Name: Mouse | Price: $25.50 | Stock: 40 | Supplier: TechSource Pte Ltd
+   -> Type: Physical | Weight: 0.12 kg | Shipping Cost: $0.60 | Fulfilment: Requires physical packaging and courier shipping.
+ID: P003 | Name: Keyboard | Price: $45.00 | Stock: 25 | Supplier: TechSource Pte Ltd
+   -> Type: Physical | Weight: 0.85 kg | Shipping Cost: $4.25 | Fulfilment: Requires physical packaging and courier shipping.
+ID: D001 | Name: System OS Pro | Price: $149.99 | Stock: 100 | Supplier: SoftWorks Digital
+   -> Type: Digital  | Download Size: 4500.00 MB | Fulfilment: Delivered digitally via direct download link.
+---------------------------------------------
+
+PASS
+
+=== test_invalid_price_is_rejected ===
+Rejected price 0: Price must be greater than zero.
+Rejected price -5: Price must be greater than zero.
+PASS
+
+=== test_negative_stock_is_rejected ===
+Rejected stock -1: Stock quantity cannot be negative.
+PASS
+
+=== test_validation_applies_to_every_product_type ===
+Rejected physical product with price -1.00: Price must be greater than zero.
+Rejected physical product with stock -1: Stock quantity cannot be negative.
+Rejected physical update_stock(-1): Stock quantity cannot be negative.
+Rejected digital product with price -1.00: Price must be greater than zero.
+Rejected digital product with stock -1: Stock quantity cannot be negative.
+Rejected digital update_stock(-1): Stock quantity cannot be negative.
+PASS
+
+=== test_order_line_quantity_must_be_positive ===
+Rejected OrderLine quantity 0: Order quantity must be greater than zero.
+Rejected add_order_line quantity 0: Order quantity must be greater than zero.
+Rejected OrderLine quantity -1: Order quantity must be greater than zero.
+Rejected add_order_line quantity -1: Order quantity must be greater than zero.
+PASS
+
+=== test_get_positive_float_asks_again_until_valid ===
+Please enter a valid number, e.g. 12.50
+Please enter a number greater than zero.
+Returned: 12.5
+PASS
+
+=== test_get_non_negative_int_asks_again_until_valid ===
+Please enter a valid whole number, e.g. 10
+Please enter a whole number that is zero or more.
+Returned: 0
+PASS
+
+=== test_load_products_skips_bad_rows_and_keeps_good_ones ===
+Row 4 skipped (service,S001,Installation,30.00,5): Unknown product type: service
+Row 5 skipped (physical,P002,Office Chair,abc,3): could not convert string to float: 'abc'
+3 products loaded.
+Load attempt finished.
+PASS
+
+=== test_load_products_handles_missing_file ===
+Products file not found: no_such_file.csv
+Load attempt finished.
+PASS
+
+=== test_load_products_reports_rows_that_break_validation ===
+Row 2 skipped (physical,P010,Free Sample,0,5): Price must be greater than zero.
+Row 3 skipped (digital,D010,E-book,9.90,-2): Stock quantity cannot be negative.
+Row 4 skipped (physical,P011,Too Few Columns,5.00): not enough values to unpack (expected 5, got 4)
+Row 6 skipped (physical,P012,Stapler Again,6.50,4): duplicate product ID
+1 products loaded.
+Load attempt finished.
+PASS
+
+=== test_every_except_names_a_specific_exception ===
+except clauses in the program:
+  except (ValueError, KeyError) as e:
+  except OSError as e:
+  except ValueError:
+  except ValueError:
+  except FileNotFoundError:
+  except ValueError as e:
+  except ValueError as e:
+PASS
+
+All 24 tests passed.
